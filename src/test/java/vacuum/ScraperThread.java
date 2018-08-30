@@ -13,12 +13,14 @@ import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import com.google.common.base.Strings;
+
 public class ScraperThread implements Runnable {
 
 	private final Forum f;
 	private final Supplier<WebDriver> supplier;
 	private WebDriver wd;
-	private static final Pattern postContentsRx = Pattern.compile("^\\s*\\[quote=@[0-9]+\\](.*?)\\[/quote\\]\\s*$");
+	private static final Pattern postContentsRx = Pattern.compile("^\\s*\\[quote=@[0-9]+\\]\\s*(.*)\\s*\\[/quote\\]\\s*$", Pattern.DOTALL);
 	private static boolean terminatedNormally = true;
 	
 	public ScraperThread(Supplier<WebDriver> supplier, Forum f) {
@@ -112,9 +114,19 @@ public class ScraperThread implements Runnable {
 				currentQuote.click();
 				RunScriptIT.waitForPageLoad(wd);
 				
+				new WebDriverWait(wd, 15).until(driver -> {
+					String s = driver.findElement(By.xpath("//textarea[@id='content']")).getAttribute("value");
+					return s != null && s.trim().length() > 0;
+				});
+				
 				textArea = wd.findElement(By.xpath("//textarea[@id='content']"));
 				String value = textArea.getAttribute("value");
-				textArea.clear();
+				if(!Strings.isNullOrEmpty(value) && value.trim().length() > 0) {
+					textArea.clear();
+				}
+				else {
+					System.out.println("NO BBCODE");
+				}
 				Matcher m = postContentsRx.matcher(value);
 				if(m.matches()) {
 					value = m.group(1);
@@ -127,6 +139,7 @@ public class ScraperThread implements Runnable {
 				post.setPostSequenceNumber(i);
 				post.setTitle(null);
 				ft.getReplies().add(post);
+				System.out.println(post.toString());
 				wd.get(ft.getUrl());
 				RunScriptIT.waitForPageLoad(wd);
 			}

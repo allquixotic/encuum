@@ -1,8 +1,11 @@
 package vacuum;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 public class Post extends BaseEntity {
 
 	protected String posterName;
+	@JsonManagedReference
 	protected ForumThread thread;
 	protected String bbcode;
 	protected int postSequenceNumber;

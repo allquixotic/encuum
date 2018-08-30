@@ -2,11 +2,13 @@ package vacuum;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 public class ForumThread extends BaseEntity {
 
 	protected String threadTitle;
 	protected String posterName;
-	
+	@JsonBackReference
 	protected List<Post> replies;
 	public String getThreadTitle() {
 		return threadTitle;

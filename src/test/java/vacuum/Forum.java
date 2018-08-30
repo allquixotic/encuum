@@ -2,6 +2,8 @@ package vacuum;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 public class Forum extends BaseEntity {
 	
 	private List<ForumThread> threads;
