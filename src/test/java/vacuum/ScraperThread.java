@@ -149,6 +149,7 @@ public class ScraperThread implements Runnable {
 //				post.setTitle(null);
 //				ft.getReplies().add(post);
 //				System.out.println(post.toString());
+				wd.manage().timeouts().implicitlyWait(60, TimeUnit.SECONDS);
 				wd.get(ft.getUrl());
 				RunScriptIT.waitForPageLoad(wd);
 			}
