@@ -44,7 +44,7 @@ public class RunScriptIT {
 		}
 		options.addArguments(allArguments);
 		ChromeDriver wd = new ChromeDriver(options);
-		wd.manage().timeouts().implicitlyWait(30, TimeUnit.SECONDS);
+		wd.manage().timeouts().implicitlyWait(7, TimeUnit.SECONDS);
 		return wd;
 	}
 
@@ -110,13 +110,13 @@ public class RunScriptIT {
 				es.submit(() -> {
 					ScraperThread st = new ScraperThread(() -> newChromeDriver(), f);
 					st.run();
-					ForumFileWriter ffw = new ForumFileWriter();
-					try {
-						ffw.writeForum(f);
-						System.out.println("Successfully wrote forum " + f.getTitle());
-					} catch (IOException ioe) {
-						ioe.printStackTrace();
-					}
+//					ForumFileWriter ffw = new ForumFileWriter();
+//					try {
+//						ffw.writeForum(f);
+//						System.out.println("Successfully wrote forum " + f.getTitle());
+//					} catch (IOException ioe) {
+//						ioe.printStackTrace();
+//					}
 				});
 			}
 			es.awaitTermination(20, TimeUnit.DAYS);
@@ -132,8 +132,8 @@ public class RunScriptIT {
 	}
 
 	public synchronized static void saveWhatchaGot() {
-		ForumFileWriter ffw = new ForumFileWriter();
-		ffw.writeForumsToFiles(forums);
+		//ForumFileWriter ffw = new ForumFileWriter();
+		//ffw.writeForumsToFiles(forums);
 	}
 
 	public static void login(WebDriver wd) {

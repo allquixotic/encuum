@@ -2,6 +2,7 @@ package vacuum;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -95,51 +96,59 @@ public class ScraperThread implements Runnable {
 				RunScriptIT.waitForPageLoad(wd);
 			}
 			List<String> userNameStrings = new ArrayList<String>();
-			for(WebElement we : wd.findElements(By.xpath("//a[contains(@class, 'element_username')]"))) {
-				userNameStrings.add(we.getText());
+			for(WebElement we : wd.findElements(By.xpath("//div[contains(@class,'posts')]//a[contains(@class, 'element_username')]"))) {
+				userNameStrings.add(we.getAttribute("innerText"));
 			}
 			
 			int numQuotesOnPage = wd.findElements(By.xpath("//div[contains(@class,'iconf-quote-right')]")).size();
 			//Quote each post, strip out the [quote=@whatever][/quote], fill out a Post per each
 			for(int i = 1; i <= numQuotesOnPage; i++) {
-				Post post = new Post();
-				WebElement textArea = null;
-				try {
-					textArea = wd.findElement(By.xpath("//textarea[@id='content']"));
-					textArea.clear();
-				}
-				catch(WebDriverException wde) { wde.printStackTrace(); continue; }
-				
-				WebElement currentQuote = wd.findElements(By.xpath("//div[contains(@class,'iconf-quote-right')]")).get(i-1);
-				currentQuote.click();
-				RunScriptIT.waitForPageLoad(wd);
-				
-				new WebDriverWait(wd, 15).until(driver -> {
-					String s = driver.findElement(By.xpath("//textarea[@id='content']")).getAttribute("value");
-					return s != null && s.trim().length() > 0;
-				});
-				
-				textArea = wd.findElement(By.xpath("//textarea[@id='content']"));
-				String value = textArea.getAttribute("value");
-				if(!Strings.isNullOrEmpty(value) && value.trim().length() > 0) {
-					textArea.clear();
-				}
-				else {
-					System.out.println("NO BBCODE");
-				}
-				Matcher m = postContentsRx.matcher(value);
-				if(m.matches()) {
-					value = m.group(1);
+				WebElement currentPost = wd.findElement(By.xpath("(//td[contains(@class, 'post')])[" + (i) + "]"));
+				wd.manage().timeouts().implicitlyWait(1, TimeUnit.SECONDS);
+				List<WebElement> z = wd.findElements(By.xpath("(//td[contains(@class, 'post')])[" + (i) + "]//a[contains(@href, 'sokan.enjin.com')]"));
+				wd.manage().timeouts().implicitlyWait(7, TimeUnit.SECONDS);
+				if(z != null && !z.isEmpty()) {
+					System.out.println(wd.getCurrentUrl() + "," + i + "," 
+							+ wd.findElement(By.xpath("(//td[contains(@class, 'post')])["+ i + "]/..//a[contains(@class, 'element_username')]")).getAttribute("innerText"));
 				}
 				
-				post.setBbcode(value);
-				post.setUrl(wd.getCurrentUrl());
-				post.setThread(ft);
-				post.setPosterName(userNameStrings.get(i-1));
-				post.setPostSequenceNumber(i);
-				post.setTitle(null);
-				ft.getReplies().add(post);
-				System.out.println(post.toString());
+				
+//				WebElement currentQuote = wd.findElements(By.xpath("//div[contains(@class,'iconf-quote-right')]")).get(i-1);
+//				currentQuote.click();
+//				RunScriptIT.waitForPageLoad(wd);
+				
+//				String value = null;
+//				try {
+//					new WebDriverWait(wd, 10).until(driver -> {
+//						String s = driver.findElement(By.xpath("//textarea[@id='content']")).getAttribute("value");
+//						return s != null && s.trim().length() > 0;
+//					});
+//					textArea = wd.findElement(By.xpath("//textarea[@id='content']"));
+//					value = textArea.getAttribute("value");
+//					if(!Strings.isNullOrEmpty(value) && value.trim().length() > 0) {
+//						textArea.clear();
+//					}
+//					else {
+//						System.out.println("NO BBCODE");
+//					}
+//					Matcher m = postContentsRx.matcher(value);
+//					if(m.matches()) {
+//						value = m.group(1);
+//					}
+//				}
+//				catch(WebDriverException te) {
+//					System.out.println("NO BBCODE");
+//					value = "No BBCode because user doesn't have permission to quote this post.";
+//				}
+//				
+//				post.setBbcode(value);
+//				post.setUrl(wd.getCurrentUrl());
+//				post.setThread(ft);
+//				post.setPosterName(userNameStrings.get(i-1));
+//				post.setPostSequenceNumber(i);
+//				post.setTitle(null);
+//				ft.getReplies().add(post);
+//				System.out.println(post.toString());
 				wd.get(ft.getUrl());
 				RunScriptIT.waitForPageLoad(wd);
 			}
