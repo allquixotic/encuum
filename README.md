@@ -33,7 +33,7 @@ Extract the archive somewhere, then open your platform's terminal app:
 
 3. Type `cargo run --release`. This will take a long time, depending on how fast Enjin's API is working, your computer's speed, etc. but expect _approximately_ 10000 forum posts (not threads, but individual posts) to be extracted per hour. For big and crusty forums with many tens of thousands of posts, it may take the better part of a day to extract. It also depends on how big the posts are. Small posts tend to get extracted quickly, while posts with a large amount of content will be delayed on the Enjin server side.
 
-4. 
+4. Leave the tool running until the console stops updating with messages indicating progress. Make sure your computer doesn't go to sleep while encuum is running.
 
 ## Configuration
 
@@ -41,7 +41,7 @@ Create a plain text file called `.env` in the encuum source directory. Then set 
 
  - `email`: **Required**. The email address of your Enjin account.
  - `password`: **Required**. The password of your Enjin account.
- - `website`: **Required**. The domain or subdomain of your Enjin site. To scrape Enjin's help forum, you would just enter "enjin.com" (no quotes). Do NOT include `https://` or anything else in this parameter besides the domain.
+ - `website`: **Required**. The domain or subdomain of your Enjin site. For example, to scrape Enjin's help forum, you would just enter "www.enjin.com" (no quotes). Do NOT include `https://` or anything else in this parameter besides the domain.
  - `database_file`: **Required**. This is a file name that will be created relative to the current directory (where you run this executable) which will contain your site data in [SQLite](https://sqlite.org/index.html) format.
  - `forum_ids`: **Optional.** A comma-separated list of forum IDs to extract into the database. If this field is blank or omitted, encuum will not extract forums. You can obtain a forum's ID by looking at the URL. For example, [this forum](https://www.enjin.com/forums/page/2/m/10826/viewthread/33743439-announcing-retirement-enjin-website-builder)'s number is `10826`. The number you're looking for is after the `/m/` in the URL.
  - `proxy`: **Optional.** Useful for using an HTTP proxy with the extractor, for example to view the content of the HTTP payloads for debugging purposes.
@@ -71,33 +71,37 @@ I can provide general tips if you give me specifics about where you're trying to
 
 ## Development Status
 
+I plan to continue supporting/working on this until Enjin is shut down at the end of April, 2023, after which a tool like this will be of no use to anyone.
+
+If you have any problems, please [file an issue](https://github.com/allquixotic/encuum/issues).
+
 ### Forums
 
-[x] Extracting the list of forum categories
-[x] Extracting the list of subforums
-[x] Extracting the list of threads
-[x] Extracting each forum post, its content and its metadata
-[x] Support to stop an extraction and view the incomplete extracted data using SQLite tools
-[ ] Support to resume a stopped forum extraction
-[ ] Support to update a forum extraction with just the changes
-[ ] Saving images, not just links to the images
+ - [x] Extracting the list of forum categories
+ - [x] Extracting the list of subforums
+ - [x] Extracting the list of threads
+ - [x] Extracting each forum post, its content and its metadata
+ - [x] Support to stop an extraction and view the incomplete extracted data using SQLite tools
+ - [ ] Support to resume a stopped forum extraction
+ - [ ] Support to update a forum extraction with just the changes
+ - [ ] Saving images, not just links to the images
 
 ### Other Enjin features
 
-[ ] Saving users
-[ ] Saving wikis
-[ ] Saving applications (to join a site)
-[ ] Saving private messages
-[ ] Saving News posts (via the Enjin News module)
-[ ] Saving Gallery images/media
-[ ] Saving Minecraft-specific stuff (unlikely to be done by @allquixotic)
-[ ] Saving Shop-specific stuff (unlikely to be done by @allquixotic)
+ - [ ] Saving users
+ - [ ] Saving wikis
+ - [ ] Saving applications (to join a site)
+ - [ ] Saving private messages
+ - [ ] Saving News posts (via the Enjin News module)
+ - [ ] Saving Gallery images/media
+ - [ ] Saving Minecraft-specific stuff (unlikely to be done by @allquixotic)
+ - [ ] Saving Shop-specific stuff (unlikely to be done by @allquixotic)
 
 ### Code features
-[x] Support for wait-and-retry when Enjin API times out or fails
-[x] Proxy support
-[ ] Refactoring
-[ ] Bug fixing
+ - [x] Support for wait-and-retry when Enjin API times out or fails
+ - [x] Proxy support
+ - [ ] Refactoring
+ - [ ] Bug fixing
 
 # Known Issues
 
