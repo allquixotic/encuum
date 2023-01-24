@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use diesel::{Insertable, Queryable, SqliteConnection};
-use serde::Serialize;
 use jsonrpsee::{core::__reexports::serde::Deserialize, http_client::HttpClient};
+use serde::Serialize;
 
 use crate::schema::*;
 
@@ -45,7 +45,7 @@ pub struct GetForumResult {
     pub announcement_local: Vec<ForumThread>,
     pub forum: Subforum,
     pub page: String,
-    pub pages: u32
+    pub pages: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -96,5 +96,5 @@ pub struct GetCafResult {
 #[derive(Serialize, Deserialize, Insertable, Queryable)]
 pub struct Image {
     pub image_url: String,
-    pub image_content: Vec<u8>
+    pub image_content: Vec<u8>,
 }

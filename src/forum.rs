@@ -1,11 +1,10 @@
-
-use std::{collections::HashMap, thread, time::Duration};
-use anyhow::bail;
-use diesel::{RunQueryDsl, ExpressionMethods};
-use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::{core::Error};
 use crate::schema::*;
 use crate::structures::*;
+use anyhow::bail;
+use diesel::{ExpressionMethods, RunQueryDsl};
+use jsonrpsee::core::Error;
+use jsonrpsee::proc_macros::rpc;
+use std::{collections::HashMap, thread, time::Duration};
 
 #[rpc(client)]
 trait ForumApi {
@@ -13,13 +12,27 @@ trait ForumApi {
     async fn login(&self, email: &String, password: &String) -> Result<LoginResponse, Error>;
 
     #[method(name="Forum.getCategoriesAndForums", param_kind=map)]
-    async fn get_categories_and_forums(&self, session_id: &String, preset_id: &String) -> Result<GetCafResult, Error>;
+    async fn get_categories_and_forums(
+        &self,
+        session_id: &String,
+        preset_id: &String,
+    ) -> Result<GetCafResult, Error>;
 
     #[method(name="Forum.getForum", param_kind=map)]
-    async fn get_forum(&self, session_id: &String, forum_id: &String, page: Option<&String>) -> Result<GetForumResult, Error>;
+    async fn get_forum(
+        &self,
+        session_id: &String,
+        forum_id: &String,
+        page: Option<&String>,
+    ) -> Result<GetForumResult, Error>;
 
     #[method(name="Forum.getThread", param_kind=map)]
-    async fn get_thread(&self, session_id: &String, thread_id: &String, page: Option<&String>) -> Result<GetThreadResult, Error>;
+    async fn get_thread(
+        &self,
+        session_id: &String,
+        thread_id: &String,
+        page: Option<&String>,
+    ) -> Result<GetThreadResult, Error>;
 }
 
 pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
@@ -28,21 +41,22 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
     let mut categories: &HashMap<String, String>;
     let conn = &mut state.conn;
 
-
-
     for caf_id in state.forum_ids.as_ref().unwrap() {
         let mut caf: GetCafResult;
 
         //XXX: Figure out how to write a closure that does this so I don't have to copy paste this 3 times
         let mut ctries = 0;
         'cafgeez: loop {
-            let caff = state.client.get_categories_and_forums(state.session_id.as_ref().unwrap(), &caf_id).await;
+            let caff = state
+                .client
+                .get_categories_and_forums(state.session_id.as_ref().unwrap(), &caf_id)
+                .await;
             let my_err: Error;
             match caff {
-                Ok(c) => { 
-                    caf = c; 
+                Ok(c) => {
+                    caf = c;
                     break 'cafgeez;
-                },
+                }
                 Err(e) => {
                     println!("{}", e);
                     my_err = e;
@@ -56,20 +70,25 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
             ctries += 1;
             thread::sleep(Duration::from_secs(60));
         }
-        
-        println!("got a site forum instance (aka prefix or caf) {} called {}", caf_id, &caf.settings.title_welcome);
+
+        println!(
+            "got a site forum instance (aka prefix or caf) {} called {}",
+            caf_id, &caf.settings.title_welcome
+        );
         categories = &caf.category_names;
 
         for (cid, cn) in categories {
             diesel::insert_or_ignore_into(category_names::table)
-                .values((category_names::category_id.eq(cid), category_names::category_name.eq(cn)))
+                .values((
+                    category_names::category_id.eq(cid),
+                    category_names::category_name.eq(cn),
+                ))
                 .execute(conn)
                 .expect("Error saving new subforum");
         }
 
         for (_forum_id, subforums) in caf.subforums.iter_mut() {
             for subforum in subforums {
-
                 let mut forum_curr_page: u32 = 1;
                 let mut forum_pages: u32;
 
@@ -79,13 +98,20 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
 
                     let mut gtries = 0;
                     'gfr: loop {
-                        let sff = state.client.get_forum(state.session_id.as_ref().unwrap(), &subforum.forum_id, Some(&forum_curr_page.to_string())).await;
+                        let sff = state
+                            .client
+                            .get_forum(
+                                state.session_id.as_ref().unwrap(),
+                                &subforum.forum_id,
+                                Some(&forum_curr_page.to_string()),
+                            )
+                            .await;
                         let my_err: Error;
                         match sff {
-                            Ok(c) => { 
-                                sf = c; 
+                            Ok(c) => {
+                                sf = c;
                                 break 'gfr;
-                            },
+                            }
                             Err(e) => {
                                 println!("{}", e);
                                 my_err = e;
@@ -99,8 +125,11 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                         gtries += 1;
                         thread::sleep(Duration::from_secs(60));
                     }
-                    
-                    println!("got page {}/{} of subforum {} called {}", sf.page, sf.pages, sf.forum.forum_id, sf.forum.forum_name);
+
+                    println!(
+                        "got page {}/{} of subforum {} called {}",
+                        sf.page, sf.pages, sf.forum.forum_id, sf.forum.forum_name
+                    );
                     if forum_curr_page == 1 {
                         diesel::insert_or_ignore_into(subforums::table)
                             .values(&sf.forum)
@@ -115,16 +144,23 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                         //Loop through each post of a thread.
                         loop {
                             let mut gtr: GetThreadResult;
-                            
+
                             let mut ttries = 0;
                             'gtrgeez: loop {
-                                let gtrr = state.client.get_thread(state.session_id.as_ref().unwrap(), &thread.thread_id, Some(&thread_curr_page.to_string())).await;
+                                let gtrr = state
+                                    .client
+                                    .get_thread(
+                                        state.session_id.as_ref().unwrap(),
+                                        &thread.thread_id,
+                                        Some(&thread_curr_page.to_string()),
+                                    )
+                                    .await;
                                 let my_err: Error;
                                 match gtrr {
-                                    Ok(c) => { 
-                                        gtr = c; 
+                                    Ok(c) => {
+                                        gtr = c;
                                         break 'gtrgeez;
-                                    },
+                                    }
                                     Err(e) => {
                                         println!("{}", e);
                                         my_err = e;
@@ -138,15 +174,23 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                                 ttries += 1;
                                 thread::sleep(Duration::from_secs(60));
                             }
-                            
-                            
+
                             thread_pages = gtr.pages;
-                            println!("got page {}/{} of a thread {} called {}", thread_curr_page, thread_pages, gtr.thread.thread_id, gtr.thread.thread_subject);
+                            println!(
+                                "got page {}/{} of a thread {} called {}",
+                                thread_curr_page,
+                                thread_pages,
+                                gtr.thread.thread_id,
+                                gtr.thread.thread_subject
+                            );
                             for post in gtr.posts.iter_mut() {
-                                println!("got a post {} related to thread {}", post.post_id, thread.thread_id);
+                                println!(
+                                    "got a post {} related to thread {}",
+                                    post.post_id, thread.thread_id
+                                );
                                 post.thread_id = Some(thread.thread_id.clone());
                             }
-                            
+
                             diesel::insert_or_ignore_into(forum_posts::table)
                                 .values(&gtr.posts)
                                 .execute(conn)
@@ -167,7 +211,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                             .expect("Error saving new threads");
                     }
 
-                    //XXX: This MUST be done AFTER the diesel call, because .append REMOVES from the source vec! 
+                    //XXX: This MUST be done AFTER the diesel call, because .append REMOVES from the source vec!
                     threads.append(&mut sf.threads);
                     threads.append(&mut sf.sticky);
                     threads.append(&mut sf.announcement_local);
@@ -182,8 +226,6 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
         }
         cafs.push(caf);
     }
-
-
 
     state.cafs = Some(cafs);
     Ok(())
