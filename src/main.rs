@@ -80,6 +80,9 @@ async fn main() -> anyhow::Result<()> {
     if state.forum_ids.is_some() {
         get_forums(&mut state).await?;
     }
+    else {
+        println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
+    }
 
     Ok(())
 }
