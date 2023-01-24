@@ -29,8 +29,13 @@ impl State {
             Some(fpis) => Some(fpis.split(",").map(|s| s.to_string()).collect()),
             None => None,
         };
-        //println!("{}", forum_ids.as_ref().unwrap().first().as_ref().unwrap());
 
+        let subforum_ids_opt = var("subforum_ids").ok();
+        let subforum_ids: Option<Vec<String>> = match subforum_ids_opt {
+            Some(fpis) => Some(fpis.split(",").map(|s| s.to_string()).collect()),
+            None => None,
+        };
+        
         let mut conn = establish_connection();
         conn.run_pending_migrations(MIGRATIONS)
             .expect("Migrations failed on database");
@@ -46,6 +51,7 @@ impl State {
             forum_ids: forum_ids,
             cafs: None,
             conn: conn,
+            subforum_ids: subforum_ids,
         }
     }
 }

@@ -89,6 +89,14 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
 
         for (_forum_id, subforums) in caf.subforums.iter_mut() {
             for subforum in subforums {
+                match &state.subforum_ids {
+                    Some(sfis) => {
+                        if !sfis.contains(&subforum.forum_id) {
+                            continue;
+                        }
+                    },
+                    None => ()
+                };
                 let mut forum_curr_page: u32 = 1;
                 let mut forum_pages: u32;
 

@@ -14,6 +14,7 @@ pub struct State {
     pub forum_ids: Option<Vec<String>>,
     pub cafs: Option<Vec<GetCafResult>>,
     pub conn: SqliteConnection,
+    pub subforum_ids: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize)]

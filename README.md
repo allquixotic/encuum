@@ -45,6 +45,8 @@ Create a plain text file called `.env` in the encuum source directory. Then set 
  - `database_file`: **Required**. This is a file name that will be created relative to the current directory (where you run this executable) which will contain your site data in [SQLite](https://sqlite.org/index.html) format.
  - `forum_ids`: **Optional.** A comma-separated list of forum IDs to extract into the database. If this field is blank or omitted, encuum will not extract forums. You can obtain a forum's ID by looking at the URL. For example, [this forum](https://www.enjin.com/forums/page/2/m/10826/viewthread/33743439-announcing-retirement-enjin-website-builder)'s number is `10826`. The number you're looking for is after the `/m/` in the URL.
  - `proxy`: **Optional.** Useful for using an HTTP proxy with the extractor, for example to view the content of the HTTP payloads for debugging purposes.
+ - `session_id`: **Optional.** Useful for specifying a long-lived Enjin Session ID (which gets printed shortly after the program starts up with this option omitted). If you specify a session_id, know that they are valid for approximately 30 days, and may be revoked by Enjin for any reason, requiring you to get a new one. The easiest way to get a new one is to remove this parameter from your .env and re-run the program. If you're running encuum very often, Enjin might stop issuing you Session IDs, so if you're running it, say, dozens of times per minute, it might be a good idea to cache the session ID this way.
+ - `subforum_ids`: **Optional.** A comma-separated list of subforum IDs to extract into the database. **Any subforum whose ID is not included in this list will _not_ be extracted or navigated.** This is useful if you know that you only care about specific subforums and you have a lot of posts in your forum in other subforums that you don't want to backup. Subforum IDs are the number after `/viewforum/` in the Enjin URL. You have to click on a specific subforum to get its ID. The URL path is usually of the form `/someforums/viewforum/12345/m/67890`, where in this example, `12345` is the subforum_id, and `67890` is the preset_id, also known as forum_id or forum instance ID.
 
 ## Example .env file:
 
@@ -82,6 +84,7 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
  - [x] Extracting the list of threads
  - [x] Extracting each forum post, its content and its metadata
  - [x] Support to stop an extraction and view the incomplete extracted data using SQLite tools
+ - [x] Support to download only a specified set of subforums, not the whole entire forum
  - [ ] Support to resume a stopped forum extraction
  - [ ] Support to update a forum extraction with just the changes
  - [ ] Saving images, not just links to the images
