@@ -1,0 +1,20 @@
+[package]
+name = "encuum-api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+diesel = { version = "2", features = [ "sqlite"  ]}
+diesel_migrations = "2"
+serde_json = "1"
+serde = "1"
+anyhow = "1"
+dotenvy = "0"
+maplit = "1"
+tracing-subscriber = { version = "0", features = ["env-filter"] }
+tracing = "0"
+jsonrpsee = { git = "https://github.com/allquixotic/jsonrpsee", branch = "http-proxy", features = ["full"] } 
+lazy_static = "1"
