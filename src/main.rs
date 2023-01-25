@@ -1,3 +1,6 @@
+/// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
+/// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+/// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
 pub mod forum;
 pub mod schema;
 pub mod structures;
@@ -35,7 +38,7 @@ impl State {
             Some(fpis) => Some(fpis.split(",").map(|s| s.to_string()).collect()),
             None => None,
         };
-        
+
         let mut conn = establish_connection();
         conn.run_pending_migrations(MIGRATIONS)
             .expect("Migrations failed on database");
@@ -52,6 +55,10 @@ impl State {
             cafs: None,
             conn: conn,
             subforum_ids: subforum_ids,
+            keep_going: var("keep_going")
+                .unwrap_or("false".to_string())
+                .parse()
+                .unwrap(),
         }
     }
 }
@@ -85,8 +92,7 @@ async fn main() -> anyhow::Result<()> {
 
     if state.forum_ids.is_some() {
         get_forums(&mut state).await?;
-    }
-    else {
+    } else {
         println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
     }
 

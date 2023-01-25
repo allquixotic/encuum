@@ -1,10 +1,13 @@
+/// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
+/// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+/// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
 use crate::schema::*;
 use crate::structures::*;
 use anyhow::bail;
 use diesel::{ExpressionMethods, RunQueryDsl};
 use jsonrpsee::core::Error;
 use jsonrpsee::proc_macros::rpc;
-use std::{collections::HashMap, thread, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 #[rpc(client)]
 trait ForumApi {
@@ -68,7 +71,8 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
             }
 
             ctries += 1;
-            thread::sleep(Duration::from_secs(60));
+
+            tokio::time::sleep(Duration::from_secs(90)).await;
         }
 
         println!(
@@ -94,14 +98,14 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                         if !sfis.contains(&subforum.forum_id) {
                             continue;
                         }
-                    },
-                    None => ()
+                    }
+                    None => (),
                 };
                 let mut forum_curr_page: u32 = 1;
                 let mut forum_pages: u32;
 
                 //Loop through each page of the subforum thread index.
-                loop {
+                'subforumpage: loop {
                     let mut sf: GetForumResult;
 
                     let mut gtries = 0;
@@ -127,11 +131,15 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                         }
 
                         if gtries >= 5 {
-                            bail!(my_err);
+                            if state.keep_going {
+                                continue 'subforumpage;
+                            } else {
+                                bail!(my_err);
+                            }
                         }
 
                         gtries += 1;
-                        thread::sleep(Duration::from_secs(60));
+                        tokio::time::sleep(Duration::from_secs(90)).await;
                     }
 
                     println!(
@@ -145,7 +153,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                             .expect("Error saving new subforum");
                     }
                     forum_pages = sf.pages;
-                    for thread in sf.threads.iter_mut() {
+                    'threadloop: for thread in sf.threads.iter_mut() {
                         let mut thread_curr_page: u32 = 1;
                         let mut thread_pages: u32;
 
@@ -176,11 +184,15 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                                 }
 
                                 if ttries >= 5 {
-                                    bail!(my_err);
+                                    if state.keep_going {
+                                        continue 'threadloop;
+                                    } else {
+                                        bail!(my_err);
+                                    }
                                 }
 
                                 ttries += 1;
-                                thread::sleep(Duration::from_secs(60));
+                                tokio::time::sleep(Duration::from_secs(90)).await;
                             }
 
                             thread_pages = gtr.pages;
