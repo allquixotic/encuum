@@ -49,7 +49,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
 
         //XXX: Figure out how to write a closure that does this so I don't have to copy paste this 3 times
         let mut ctries = 0;
-        'cafgeez: loop {
+        'caf: loop {
             let caff = state
                 .client
                 .get_categories_and_forums(state.session_id.as_ref().unwrap(), &caf_id)
@@ -58,7 +58,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
             match caff {
                 Ok(c) => {
                     caf = c;
-                    break 'cafgeez;
+                    break 'caf;
                 }
                 Err(e) => {
                     println!("{}", e);
@@ -162,7 +162,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                             let mut gtr: GetThreadResult;
 
                             let mut ttries = 0;
-                            'gtrgeez: loop {
+                            'gtr: loop {
                                 let gtrr = state
                                     .client
                                     .get_thread(
@@ -175,7 +175,7 @@ pub async fn get_forums(state: &mut State) -> anyhow::Result<()> {
                                 match gtrr {
                                     Ok(c) => {
                                         gtr = c;
-                                        break 'gtrgeez;
+                                        break 'gtr;
                                     }
                                     Err(e) => {
                                         println!("{}", e);
