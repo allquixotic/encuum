@@ -10,7 +10,7 @@ pub struct Model {
     pub post_id: String,
     pub post_time: String,
     pub post_content: String,
-    pub post_user_id: String,
+    pub post_user_id: Option<String>,
     pub last_edit_time: String,
     pub post_unhidden: String,
     pub post_admin_hidden: String,

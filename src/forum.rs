@@ -71,7 +71,7 @@ pub fn parse_number(val: &serde_json::Value) -> Option<u32> {
 //Slow down the calls ever so slightly to reduce the chance of being rate-limited
 pub async fn whoa(arl: &mut u32) {
     tokio::time::sleep(Duration::from_millis((100 * *arl).into())).await;
-    if *arl < 9 {
+    if *arl < 5 {
         *arl += 1;
     }
 }
@@ -89,7 +89,7 @@ pub async fn calculate_and_sleep(thing: &Thing, thing_id: &String, e: &Error, tr
 impl ForumDoer {
     /// Since image downloads are unreliable anyway, we just print out errors and keep going
     pub async fn download_image(&self, url: String) {
-        println!("download_image({:#?})", url);
+        println!("download_image({:?})", url);
         let db_find = images::Entity::find_by_id(url.to_string())
             .one(&self.state.conn)
             .await;
@@ -128,7 +128,7 @@ impl ForumDoer {
     }
 
     pub async fn get_images(&self, post_id: String, post_content: String) {
-        println!("get_images({:#?})", post_id);
+        println!("get_images({:?})", post_id);
         let matches = IMG_RX.captures_iter(&post_content);
         let futures = FuturesUnordered::new();
 
@@ -141,7 +141,7 @@ impl ForumDoer {
     }
 
     pub async fn get_preset_retry(&self, preset_id: &String) -> Option<GetCafResult> {
-        println!("get_preset_retry({:#?})", preset_id);
+        println!("get_preset_retry({:?})", preset_id);
         let mut tries = 1;
 
         loop {
@@ -216,10 +216,7 @@ impl ForumDoer {
         thread_id: &String,
         page: Option<String>,
     ) -> Option<GetThreadResult> {
-        println!(
-            "get_thread_index_retry({:#?}, {:#?})",
-            thread_id, page
-        );
+        println!("get_thread_index_retry({}, {:?})",thread_id, page);
         let mut tries = 1;
         loop {
             let maybe_gtr = self
@@ -331,8 +328,9 @@ impl ForumDoer {
             if let Some(pn) = page_num {
                 page_map.insert(y.thread.thread_id.clone(), pn);
             }
-            retval.push(y);
             whoa(&mut arl).await;
+            println!("Got Page 1 of Thread {} from Forum {}",y.thread.thread_id, &y.thread.forum_id);
+            retval.push(y);
         }
 
         //Queue request for every remaining page for every thread index list.
@@ -351,10 +349,7 @@ impl ForumDoer {
                 continue;
             }
             let xu = x.unwrap();
-            println!(
-                "Got Thread {} from Forum {}",
-                xu.thread.thread_id, xu.thread.forum_id
-            );
+            println!("Got Thread {} from Forum {}",xu.thread.thread_id, xu.thread.forum_id);
             retval.push(xu);
             whoa(&mut arl).await;
         }
@@ -363,6 +358,7 @@ impl ForumDoer {
     }
 
     pub async fn save_preset(&self, preset_id: &String, caf: &GetCafResult) {
+        println!("save_preset({})", preset_id);
         let categories = &caf.category_names;
 
         for (cid, cn) in categories {
@@ -406,6 +402,7 @@ impl ForumDoer {
     }
 
     pub async fn save_subforum(&self, gfr: &GetForumResult) {
+        println!("save_subforum({})", gfr.forum.forum_id);
         let mut futs = FuturesUnordered::new();
 
         subforums::Entity::insert(subforums::ActiveModel {
@@ -444,6 +441,7 @@ impl ForumDoer {
     }
 
     pub async fn save_threads(&self, gtrs: Vec<GetThreadResult>) {
+        println!("save_threads()");
         let mut futs = FuturesUnordered::new();
         let mut img_futs = FuturesUnordered::new();
         for gtr in gtrs {
