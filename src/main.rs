@@ -2,19 +2,20 @@
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 /// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
 pub mod forum;
-pub mod schema;
 pub mod structures;
+
+use std::time::Duration;
 
 use crate::forum::*;
 use crate::structures::*;
-use diesel::*;
-use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use dotenvy::var;
 use jsonrpsee::{core::client::IdKind, http_client::HttpClientBuilder, ws_client::HeaderMap};
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+use migration::Migrator;
+use migration::MigratorTrait;
+use sea_orm::Database;
 
 impl State {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let proxy = var("proxy").ok();
         let website = var("website").expect("Required .env variable missing: website");
         let mut headers = HeaderMap::new();
@@ -22,7 +23,8 @@ impl State {
         headers.insert("User-Agent", "encuum-api".parse().unwrap());
         let mut client_builder = HttpClientBuilder::default()
             .set_headers(headers)
-            .id_format(IdKind::String);
+            .id_format(IdKind::String)
+            .request_timeout(Duration::from_secs(600));
         if proxy.as_ref().is_some() {
             client_builder = client_builder.set_proxy(proxy.as_ref().unwrap()).unwrap();
         }
@@ -39,9 +41,13 @@ impl State {
             None => None,
         };
 
-        let mut conn = establish_connection();
-        conn.run_pending_migrations(MIGRATIONS)
-            .expect("Migrations failed on database");
+        let filename = var("database_file").expect("database_file must be set");
+        let conn = Database::connect(format!("sqlite://./{}?mode=rwc", filename))
+            .await
+            .expect(format!("Can't open DB {}", filename).as_str());
+        Migrator::up(&conn, None)
+            .await
+            .expect("Failed to bring DB schema up");
 
         State {
             email: var("email").expect("Required .env variable missing: email"),
@@ -59,14 +65,9 @@ impl State {
                 .unwrap_or("false".to_string())
                 .parse()
                 .unwrap(),
+            req_client: reqwest::Client::new(),
         }
     }
-}
-
-fn establish_connection() -> SqliteConnection {
-    let filename = var("database_file").expect("database_file must be set");
-    SqliteConnection::establish(filename.as_str())
-        .expect(format!("Error opening file {}", filename).as_str())
 }
 
 #[tokio::main]
@@ -76,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
         .try_init()
         .expect("setting default subscriber failed");
 
-    let mut state = State::new();
+    let mut state = State::new().await;
 
     if state.session_id.is_none() {
         let resp = state.client.login(&state.email, &state.password).await?;
@@ -91,7 +92,8 @@ async fn main() -> anyhow::Result<()> {
         .expect("Can't get a valid session ID. Check your username and password.");
 
     if state.forum_ids.is_some() {
-        get_forums(&mut state).await?;
+        let fd = ForumDoer { state: state };
+        fd.get_forums().await?;
     } else {
         println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
     }

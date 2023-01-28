@@ -74,6 +74,22 @@ This is beyond the scope of what encuum can help you with, but you will need to 
 
 I can provide general tips if you give me specifics about where you're trying to import, but I probably won't have time to write code for you.
 
+## Troubleshooting Encuum
+
+The error messaging available within Encuum may appear limited, but it's easy to install an intercepting proxy that will give us excellent debug info on what's going on and why a transaction is failing.
+
+If you encounter something like a "Parse Error" while running Encuum, download an intercepting HTTP proxy, such as [Proxyman](https://proxyman.io/). Install it and launch it. You don't have to make an account.
+
+Then, proxyman will show the listening IP address and port at the top of the screen. Plug that info into your `.env` configuration file. For example, if proxyman says it's listening on `http://127.0.0.1:9091` then you'd write this in your `.env` file:
+
+`proxy=http://127.0.0.1:9091`
+
+Once it's running, follow the directions to [enable TLS (aka HTTPS) support in Proxyman](https://docs.proxyman.io/basic-features/ssl-proxying). You may have to run Encuum to whitelist HTTPS decryption of your website's traffic.
+
+Now, re-run Encuum as directed once more via `cargo run --release`. This will cause your Proxyman window to fill up with requests to your guild website. Keep it running until Encuum fails, then copy the "Raw" contents of the last request and response bodies (I need both request *and* response) into a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Lastly, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with the error message you received from Encuum.
+
+By helping me with these reports, we'll work through the remaining bugs in Encuum.
+
 ## Development Status
 
 I plan to continue supporting/working on this until Enjin is shut down at the end of April, 2023, after which a tool like this will be of no use to anyone.

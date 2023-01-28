@@ -1,0 +1,16 @@
+[package]
+name = "entity"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "entity"
+path = "src/mod.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+serde = "1"
+sea-orm = { version = "0", features = ["sqlx-sqlite", "runtime-tokio-native-tls", "macros"] }
+futures = "0"
