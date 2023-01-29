@@ -416,6 +416,21 @@ impl ForumDoer {
             parent_id: Set(gfr.forum.parent_id.clone()),
             forum_type: Set(gfr.forum.forum_type.clone()),
         })
+        .on_conflict(
+            // on conflict do nothing
+            OnConflict::column(subforums::Column::ForumId)
+                .update_columns([
+                    subforums::Column::TitleWelcome,
+                    subforums::Column::PresetId,
+                    subforums::Column::CategoryId,
+                    subforums::Column::CategoryName,
+                    subforums::Column::ForumName,
+                    subforums::Column::ForumDescription,
+                    subforums::Column::ParentId,
+                    subforums::Column::ForumType,
+                ])
+                .to_owned(),
+        )
         .exec(&self.state.conn)
         .await
         .expect("Code-up error: can't insert a subforum into the database!");
@@ -432,6 +447,20 @@ impl ForumDoer {
                     username: Set(thread.username.clone()),
                     category_id: Set(gfr.forum.category_id.clone()),
                 })
+                .on_conflict(
+                    // on conflict do nothing
+                    OnConflict::column(forum_threads::Column::ThreadId)
+                        .update_columns([
+                            forum_threads::Column::ThreadSubject,
+                            forum_threads::Column::ThreadViews,
+                            forum_threads::Column::ThreadType,
+                            forum_threads::Column::ThreadStatus,
+                            forum_threads::Column::ForumId,
+                            forum_threads::Column::Username,
+                            forum_threads::Column::CategoryId,
+                        ])
+                        .to_owned(),
+                )
                 .exec(&self.state.conn),
             );
         }
@@ -460,6 +489,23 @@ impl ForumDoer {
                         post_username: Set(post.post_username.clone()),
                         thread_id: Set(Some(gtr.thread.thread_id.clone())),
                     })
+                    .on_conflict(
+                        // on conflict do nothing
+                        OnConflict::column(forum_posts::Column::PostId)
+                            .update_columns([
+                                forum_posts::Column::PostTime,
+                                forum_posts::Column::PostContent,
+                                forum_posts::Column::PostUserId,
+                                forum_posts::Column::LastEditTime,
+                                forum_posts::Column::PostUnhidden,
+                                forum_posts::Column::PostAdminHidden,
+                                forum_posts::Column::PostLocked,
+                                forum_posts::Column::LastEditUser,
+                                forum_posts::Column::PostUsername,
+                                forum_posts::Column::ThreadId,
+                            ])
+                            .to_owned(),
+                    )
                     .exec(&self.state.conn),
                 );
 
