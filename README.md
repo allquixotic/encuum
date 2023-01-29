@@ -131,7 +131,7 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
 
 ## Licensing
 
-All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
+All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 
 The license of downstream dependencies (*not* the code in this repo itself) reads as follows:
 

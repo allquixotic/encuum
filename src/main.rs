@@ -1,9 +1,8 @@
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-/// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
+/// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 pub mod forum;
 pub mod structures;
-
 use std::time::Duration;
 
 use crate::forum::*;
@@ -13,6 +12,8 @@ use jsonrpsee::{core::client::IdKind, http_client::HttpClientBuilder, ws_client:
 use migration::Migrator;
 use migration::MigratorTrait;
 use sea_orm::Database;
+use tokio_cron_scheduler::Job;
+use tokio_cron_scheduler::JobScheduler;
 
 impl State {
     pub async fn new() -> Self {
@@ -77,26 +78,53 @@ async fn main() -> anyhow::Result<()> {
         .try_init()
         .expect("setting default subscriber failed");
 
-    let mut state = State::new().await;
+    let sched = JobScheduler::new().await?;
 
-    if state.session_id.is_none() {
-        let resp = state.client.login(&state.email, &state.password).await?;
-        println!("{}", resp.session_id);
-        state.session_id = Some(resp.session_id);
-    }
+    let stats_job = Job::new_repeated(Duration::from_secs(60), |_a, _schedd| {
+        match memory_stats::memory_stats() {
+            Some(ms) => {
+                println!("*** encuum memory usage: {} bytes ({} MB)", ms.physical_mem, ms.physical_mem / 1000000);
+            },
+            None => {
+                println!("*** unable to get encuum memory usage");
+            }
+        }
+    })?;
 
-    //If we can't get a session id by now, let's just exit the program
-    state
+    sched.add(stats_job).await?;
+
+    let oneshot = Job::new_one_shot_at_instant_async(std::time::Instant::now(), |_a, mut schedd| Box::pin(async move {
+        let mut state = State::new().await;
+        if state.session_id.is_none() {
+            let resp = state.client.login(&state.email, &state.password).await.expect("Login failed");
+            println!("{}", resp.session_id);
+            state.session_id = Some(resp.session_id);
+        }
+    
+        //If we can't get a session id by now, let's just exit the program
+        state
         .session_id
         .as_ref()
         .expect("Can't get a valid session ID. Check your username and password.");
 
-    if state.forum_ids.is_some() {
-        let fd = ForumDoer { state: state };
-        fd.get_forums().await?;
-    } else {
-        println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
-    }
+        if state.forum_ids.is_some() {
+            let fd = ForumDoer { state: state };
+            fd.get_forums().await.unwrap();
+        } else {
+            println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
+        }
+        schedd.shutdown().await.unwrap();
+    }))?;
+    sched.add(oneshot).await?;
 
-    Ok(())
+    #[cfg(feature = "signal")]
+    sched.shutdown_on_ctrl_c();
+
+    sched.start().await?;
+
+    // Wait a while so that the jobs actually run
+    loop {
+        tokio::time::sleep(core::time::Duration::from_secs(10)).await;
+    }
+    //Ok(())
 }

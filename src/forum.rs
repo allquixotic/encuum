@@ -1,6 +1,6 @@
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-/// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
+/// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 use entity::*;
 
 use crate::structures::*;
@@ -130,16 +130,10 @@ impl ForumDoer {
     pub async fn get_images(&self, post_id: String, post_content: String) {
         println!("get_images({:?})", post_id);
         let matches = IMG_RX.captures_iter(&post_content);
-        let mut futures = FuturesUnordered::new();
 
         for mmatch in matches {
             let url = &mmatch[1];
-            futures.push(self.download_image(url.to_owned()));
-        }
-
-        let mut arl: u32 = 1;
-        while let Some(_x) = futures.next().await {
-            whoa(&mut arl).await;
+            self.download_image(url.to_owned()).await;
         }
     }
 

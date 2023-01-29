@@ -1,7 +1,7 @@
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-/// Direct dependencies such as Rust, Diesel-rs, Hyper and jsonrpsee are licensed under the MIT or 3-clause BSD license, which allow downstream code to have any license.
-use std::collections::HashMap;
+/// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
+use std::{collections::HashMap};
 
 use jsonrpsee::{core::__reexports::serde::Deserialize, http_client::HttpClient};
 use reqwest::Client;
