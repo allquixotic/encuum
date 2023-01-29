@@ -130,14 +130,17 @@ impl ForumDoer {
     pub async fn get_images(&self, post_id: String, post_content: String) {
         println!("get_images({:?})", post_id);
         let matches = IMG_RX.captures_iter(&post_content);
-        let futures = FuturesUnordered::new();
+        let mut futures = FuturesUnordered::new();
 
         for mmatch in matches {
             let url = &mmatch[1];
             futures.push(self.download_image(url.to_owned()));
         }
 
-        futures.collect::<()>().await;
+        let mut arl: u32 = 1;
+        while let Some(_x) = futures.next().await {
+            whoa(&mut arl).await;
+        }
     }
 
     pub async fn get_preset_retry(&self, preset_id: &String) -> Option<GetCafResult> {
@@ -531,10 +534,29 @@ impl ForumDoer {
             let caf = maybe_caf.unwrap(); //Guaranteed to succeed
             self.save_preset(caf_id, &caf).await;
             let maybe_sfis = &self.state.subforum_ids;
+            let mut all_subforums: Vec<String> = vec![];
+            all_subforums.extend(caf.subforums.keys().cloned());  
+
+            //Add the "categories" top-level forums.
+            for foru in caf.categories.values() {
+                for (fid, _) in foru {
+                    all_subforums.push(fid.clone());
+                }
+            }
+
+            //Add all the subforums.
+            for sfs in caf.subforums.values() {
+                for sf in sfs {
+                    all_subforums.push(sf.forum_id.clone());
+                }
+            }
+
+            all_subforums.sort();
+            all_subforums.dedup();
 
             //Call Forum.getForum for every CAF (only for allowed subforums).
             let allowed_subforums =
-                Vec::from_iter(caf.subforums.keys().filter(|subforum_id| match maybe_sfis {
+                Vec::from_iter(all_subforums.iter().filter(|subforum_id| match maybe_sfis {
                     Some(sfis) => {
                         if sfis.len() == 0 {
                             return true;
@@ -546,6 +568,7 @@ impl ForumDoer {
                         return true;
                     }
                 }));
+            println!("*** Total number of forums and subforums to scan: {}", allowed_subforums.len());
             subforum_results = self.get_subforums(allowed_subforums).await;
             let mut gtr_futs = FuturesUnordered::new();
             //Call Forum.getThread for every GFR.

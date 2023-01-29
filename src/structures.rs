@@ -57,4 +57,5 @@ pub struct GetCafResult {
     pub total_threads: serde_json::Value,
     pub total_posts: serde_json::Value,
     pub category_names: HashMap<String, String>,
+    pub categories: HashMap<String, HashMap<String, Subforum>>,
 }
