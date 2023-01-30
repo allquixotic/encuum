@@ -84,7 +84,7 @@ Then, proxyman will show the listening IP address and port at the top of the scr
 
 `proxy=http://127.0.0.1:9091`
 
-Once it's running, follow the directions to [enable TLS (aka HTTPS) support in Proxyman](https://docs.proxyman.io/basic-features/ssl-proxying). You may have to run Encuum to whitelist HTTPS decryption of your website's traffic.
+Once it's running, follow the directions to [enable TLS (aka HTTPS) support in Proxyman](https://docs.proxyman.io/basic-features/ssl-proxying). You may have to run Encuum to whitelist HTTPS decryption of your website's traffic. The instructions to enable the required TLS certificate are [HERE](https://docs.proxyman.io/proxyman-windows/install-certificate).
 
 Now, re-run Encuum as directed once more via `cargo run --release`. This will cause your Proxyman window to fill up with requests to your guild website. Keep it running until Encuum fails, then copy the "Raw" contents of the last request and response bodies (I need both request *and* response) into a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Lastly, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with the error message you received from Encuum.
 
@@ -104,9 +104,9 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
  - [x] Extracting each forum post, its content and its metadata
  - [x] Support to stop an extraction and view the incomplete extracted data using SQLite tools
  - [x] Support to download only a specified set of subforums, not the whole entire forum
- - [ ] Support to resume a stopped forum extraction
+ - [x] Saving images, not just links to the images
+ - [x] Support to resume a stopped forum extraction
  - [ ] Support to update a forum extraction with just the changes
- - [ ] Saving images, not just links to the images
 
 ### Other Enjin features
 
