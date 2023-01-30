@@ -52,9 +52,16 @@ pub struct GetThreadResult {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+pub enum SubforumType {
+    MapSubforum(HashMap<String, Vec<Subforum>>),
+    SeqSubforum(Vec<String>),
+}
+
+#[derive(Deserialize)]
 pub struct GetCafResult {
     pub settings: ForumSettings,
-    pub subforums: HashMap<String, Vec<Subforum>>,
+    pub subforums: SubforumType,
     pub total_threads: serde_json::Value,
     pub total_posts: serde_json::Value,
     pub category_names: HashMap<String, String>,

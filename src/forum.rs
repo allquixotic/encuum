@@ -1,7 +1,7 @@
-use crate::structures::*;
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
+use crate::structures::*;
 use entity::*;
 use futures::{stream::FuturesUnordered, StreamExt};
 use jsonrpsee::core::Error;
@@ -528,19 +528,28 @@ impl ForumDoer {
             self.save_preset(caf_id, &caf).await;
             let maybe_sfis = &self.state.subforum_ids;
             let mut all_subforums: Vec<String> = vec![];
-            all_subforums.extend(caf.subforums.keys().cloned());
 
+            //Add all the subforums.
+            match caf.subforums {
+                SubforumType::MapSubforum(m) => {
+                    all_subforums.extend(m.keys().cloned());
+                    for sfs in m.values() {
+                        for sf in sfs {
+                            all_subforums.push(sf.forum_id.clone());
+                        }
+                    }
+                },
+                SubforumType::SeqSubforum(s) => {
+                    for x in s {
+                        all_subforums.push(x.clone());
+                    }
+                }
+            }
+            
             //Add the "categories" top-level forums.
             for foru in caf.categories.values() {
                 for (fid, _) in foru {
                     all_subforums.push(fid.clone());
-                }
-            }
-
-            //Add all the subforums.
-            for sfs in caf.subforums.values() {
-                for sf in sfs {
-                    all_subforums.push(sf.forum_id.clone());
                 }
             }
 
