@@ -28,4 +28,4 @@ futures = "0"
 migration = { path = "migration" }
 entity = { path = "entity" }
 memory-stats = "1"
-tokio-cron-scheduler = { version = "0", features = ["signal"]}
+tokio-cron-scheduler = "0"

@@ -1,16 +1,14 @@
+use crate::structures::*;
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 use entity::*;
-
-use crate::structures::*;
-use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
-
 use futures::{stream::FuturesUnordered, StreamExt};
 use jsonrpsee::core::Error;
 use jsonrpsee::proc_macros::rpc;
 use lazy_static::lazy_static;
 use regex::Regex;
+use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
 use std::{collections::HashMap, time::Duration};
 
 #[rpc(client)]
@@ -90,6 +88,7 @@ impl ForumDoer {
     /// Since image downloads are unreliable anyway, we just print out errors and keep going
     pub async fn download_image(&self, url: String) {
         println!("download_image({:?})", url);
+
         let db_find = images::Entity::find_by_id(url.to_string())
             .one(&self.state.conn)
             .await;
@@ -104,7 +103,6 @@ impl ForumDoer {
             println!("Already have image; not downloading again: {}", url);
             return;
         }
-
         let req = self.state.req_client.get(&url).send().await;
         if req.is_err() {
             dbg!(req.unwrap_err());
@@ -117,7 +115,7 @@ impl ForumDoer {
         }
         let bytes = maybe_bytes.unwrap();
         let maybe_exec = images::Entity::insert(images::ActiveModel {
-            image_url: Set(url),
+            image_url: Set(url.clone()),
             image_content: Set(Some(bytes.to_vec())),
         })
         .exec(&self.state.conn)
@@ -177,7 +175,7 @@ impl ForumDoer {
         forum_id: &String,
         page: Option<String>,
     ) -> Option<GetForumResult> {
-        println!("get_forum_index_retry({:?}, {:?})",forum_id, page);
+        println!("get_forum_index_retry({:?}, {:?})", forum_id, page);
         let mut tries = 1;
         loop {
             let maybe_gfr = self
@@ -213,7 +211,7 @@ impl ForumDoer {
         thread_id: &String,
         page: Option<String>,
     ) -> Option<GetThreadResult> {
-        println!("get_thread_index_retry({}, {:?})",thread_id, page);
+        println!("get_thread_index_retry({}, {:?})", thread_id, page);
         let mut tries = 1;
         loop {
             let maybe_gtr = self
@@ -268,10 +266,7 @@ impl ForumDoer {
             if let Some(pn) = page_num {
                 page_map.insert(y.forum.forum_id.clone(), pn);
             }
-            println!(
-                "Got Page 1 of the Forum Index for {}",
-                y.forum.forum_id
-            );
+            println!("Got Page 1 of the Forum Index for {}", y.forum.forum_id);
             whoa(&mut arl).await;
             retval.push(y);
         }
@@ -326,7 +321,10 @@ impl ForumDoer {
                 page_map.insert(y.thread.thread_id.clone(), pn);
             }
             whoa(&mut arl).await;
-            println!("Got Page 1 of Thread {} from Forum {}",y.thread.thread_id, &y.thread.forum_id);
+            println!(
+                "Got Page 1 of Thread {} from Forum {}",
+                y.thread.thread_id, &y.thread.forum_id
+            );
             retval.push(y);
         }
 
@@ -346,7 +344,10 @@ impl ForumDoer {
                 continue;
             }
             let xu = x.unwrap();
-            println!("Got Thread {} from Forum {}",xu.thread.thread_id, xu.thread.forum_id);
+            println!(
+                "Got Thread {} from Forum {}",
+                xu.thread.thread_id, xu.thread.forum_id
+            );
             retval.push(xu);
             whoa(&mut arl).await;
         }
@@ -466,60 +467,50 @@ impl ForumDoer {
         }
     }
 
-    pub async fn save_threads(&self, gtrs: Vec<GetThreadResult>) {
+    pub async fn save_threads(&self, gtrs: &Vec<GetThreadResult>) {
         println!("save_threads()");
-        let mut futs = FuturesUnordered::new();
-        let mut img_futs = FuturesUnordered::new();
         for gtr in gtrs {
             for post in &gtr.posts {
-                futs.push(
-                    forum_posts::Entity::insert(forum_posts::ActiveModel {
-                        post_id: Set(post.post_id.clone()),
-                        post_time: Set(post.post_time.clone()),
-                        post_content: Set(post.post_content.clone()),
-                        post_user_id: Set(post.post_user_id.clone()),
-                        last_edit_time: Set(post.last_edit_time.clone()),
-                        post_unhidden: Set(post.post_unhidden.clone()),
-                        post_admin_hidden: Set(post.post_admin_hidden.clone()),
-                        post_locked: Set(post.post_locked.clone()),
-                        last_edit_user: Set(post.last_edit_user.clone()),
-                        post_username: Set(post.post_username.clone()),
-                        thread_id: Set(Some(gtr.thread.thread_id.clone())),
-                    })
-                    .on_conflict(
-                        // on conflict do nothing
-                        OnConflict::column(forum_posts::Column::PostId)
-                            .update_columns([
-                                forum_posts::Column::PostTime,
-                                forum_posts::Column::PostContent,
-                                forum_posts::Column::PostUserId,
-                                forum_posts::Column::LastEditTime,
-                                forum_posts::Column::PostUnhidden,
-                                forum_posts::Column::PostAdminHidden,
-                                forum_posts::Column::PostLocked,
-                                forum_posts::Column::LastEditUser,
-                                forum_posts::Column::PostUsername,
-                                forum_posts::Column::ThreadId,
-                            ])
-                            .to_owned(),
-                    )
-                    .exec(&self.state.conn),
-                );
-
-                img_futs.push(self.get_images(post.post_id.clone(), post.post_content.clone()));
+                forum_posts::Entity::insert(forum_posts::ActiveModel {
+                    post_id: Set(post.post_id.clone()),
+                    post_time: Set(post.post_time.clone()),
+                    post_content: Set(post.post_content.clone()),
+                    post_user_id: Set(post.post_user_id.clone()),
+                    last_edit_time: Set(post.last_edit_time.clone()),
+                    post_unhidden: Set(post.post_unhidden.clone()),
+                    post_admin_hidden: Set(post.post_admin_hidden.clone()),
+                    post_locked: Set(post.post_locked.clone()),
+                    last_edit_user: Set(post.last_edit_user.clone()),
+                    post_username: Set(post.post_username.clone()),
+                    thread_id: Set(Some(gtr.thread.thread_id.clone())),
+                })
+                .on_conflict(
+                    // on conflict do nothing
+                    OnConflict::column(forum_posts::Column::PostId)
+                        .update_columns([
+                            forum_posts::Column::PostTime,
+                            forum_posts::Column::PostContent,
+                            forum_posts::Column::PostUserId,
+                            forum_posts::Column::LastEditTime,
+                            forum_posts::Column::PostUnhidden,
+                            forum_posts::Column::PostAdminHidden,
+                            forum_posts::Column::PostLocked,
+                            forum_posts::Column::LastEditUser,
+                            forum_posts::Column::PostUsername,
+                            forum_posts::Column::ThreadId,
+                        ])
+                        .to_owned(),
+                )
+                .exec(&self.state.conn)
+                .await
+                .expect("Code-up error: Can't save thread to DB!");
             }
         }
-        while let Some(x) = futs.next().await {
-            x.expect("Code-up error: can't insert a forum post into the database!");
-        }
-
-        while let Some(_x) = img_futs.next().await {}
     }
 
     pub async fn get_forums(&self) -> anyhow::Result<()> {
         for caf_id in self.state.forum_ids.as_ref().unwrap() {
             let subforum_results;
-            let mut db_futs = FuturesUnordered::new();
             let maybe_caf = self.get_preset_retry(caf_id).await;
             if maybe_caf.is_none() {
                 continue;
@@ -529,7 +520,7 @@ impl ForumDoer {
             self.save_preset(caf_id, &caf).await;
             let maybe_sfis = &self.state.subforum_ids;
             let mut all_subforums: Vec<String> = vec![];
-            all_subforums.extend(caf.subforums.keys().cloned());  
+            all_subforums.extend(caf.subforums.keys().cloned());
 
             //Add the "categories" top-level forums.
             for foru in caf.categories.values() {
@@ -562,23 +553,30 @@ impl ForumDoer {
                         return true;
                     }
                 }));
-            println!("*** Total number of forums and subforums to scan: {}", allowed_subforums.len());
+            println!(
+                "*** Total number of forums and subforums to scan: {}",
+                allowed_subforums.len()
+            );
             subforum_results = self.get_subforums(allowed_subforums).await;
-            let mut gtr_futs = FuturesUnordered::new();
             //Call Forum.getThread for every GFR.
             for gfr in &subforum_results {
-                db_futs.push(self.save_subforum(&gfr));
+                self.save_subforum(&gfr).await;
                 let mut inval = vec![];
                 for inv in &gfr.threads {
                     inval.push(inv.thread_id.clone());
                 }
                 let threads = self.get_threads(inval).await;
-                gtr_futs.push(self.save_threads(threads));
-            }
+                self.save_threads(&threads).await;
 
-            while let Some(_) = db_futs.next().await {}
-            while let Some(_) = gtr_futs.next().await {}
+                for thread in threads {
+                    for post in thread.posts {
+                        self.get_images(post.post_id.clone(), post.post_content.clone())
+                            .await;
+                    }
+                }
+            }
         }
+        println!("*** Done extracting forums.");
         Ok(())
     }
 }
