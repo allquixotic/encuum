@@ -9,7 +9,11 @@ use jsonrpsee::proc_macros::rpc;
 use lazy_static::lazy_static;
 use regex::Regex;
 use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
-use std::{collections::HashMap, time::Duration};
+use secrecy::ExposeSecret;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 #[rpc(client)]
 trait ForumApi {
@@ -143,7 +147,10 @@ impl ForumDoer {
             let maybe_caf = self
                 .state
                 .client
-                .get_categories_and_forums(&self.state.session_id.as_ref().unwrap(), preset_id)
+                .get_categories_and_forums(
+                    &self.state.session_id.as_ref().unwrap().expose_secret(),
+                    preset_id,
+                )
                 .await;
             match maybe_caf {
                 Err(e) => {
@@ -182,7 +189,7 @@ impl ForumDoer {
                 .state
                 .client
                 .get_forum(
-                    &self.state.session_id.as_ref().unwrap(),
+                    &self.state.session_id.as_ref().unwrap().expose_secret(),
                     &forum_id,
                     page.as_ref(),
                 )
@@ -218,7 +225,7 @@ impl ForumDoer {
                 .state
                 .client
                 .get_thread(
-                    &self.state.session_id.as_ref().unwrap(),
+                    &self.state.session_id.as_ref().unwrap().expose_secret(),
                     thread_id,
                     page.as_ref(),
                 )
@@ -509,6 +516,7 @@ impl ForumDoer {
     }
 
     pub async fn get_forums(&self) -> anyhow::Result<()> {
+        let mut dones: HashSet<String> = HashSet::new();
         for caf_id in self.state.forum_ids.as_ref().unwrap() {
             let subforum_results;
             let maybe_caf = self.get_preset_retry(caf_id).await;
@@ -565,13 +573,27 @@ impl ForumDoer {
                 for inv in &gfr.threads {
                     inval.push(inv.thread_id.clone());
                 }
+                for inv in &gfr.sticky {
+                    inval.push(inv.thread_id.clone());
+                }
+                for inv in &gfr.announcement_local {
+                    inval.push(inv.thread_id.clone());
+                }
+                for inv in &gfr.announcement_global {
+                    if !dones.contains(&inv.thread_id) {
+                        inval.push(inv.thread_id.clone());
+                        dones.insert(inv.thread_id.clone());
+                    }
+                }
                 let threads = self.get_threads(inval).await;
                 self.save_threads(&threads).await;
 
-                for thread in threads {
-                    for post in thread.posts {
-                        self.get_images(post.post_id.clone(), post.post_content.clone())
-                            .await;
+                if self.state.do_images {
+                    for thread in threads {
+                        for post in thread.posts {
+                            self.get_images(post.post_id.clone(), post.post_content.clone())
+                                .await;
+                        }
                     }
                 }
             }

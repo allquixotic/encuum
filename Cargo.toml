@@ -29,3 +29,4 @@ migration = { path = "migration" }
 entity = { path = "entity" }
 memory-stats = "1"
 tokio-cron-scheduler = "0"
+secrecy = { version = "0", features = ["serde"] }

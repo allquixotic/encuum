@@ -16,6 +16,8 @@ use lazy_static::lazy_static;
 use migration::Migrator;
 use migration::MigratorTrait;
 use sea_orm::Database;
+use secrecy::ExposeSecret;
+use secrecy::SecretString;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
 
@@ -54,19 +56,30 @@ impl State {
             .await
             .expect("Failed to bring DB schema up");
 
+        let session_id = match var("session_id").ok() {
+            Some(s) => Some(SecretString::new(s)),
+            None => None,
+        };
+
         State {
             email: var("email").expect("Required .env variable missing: email"),
-            password: var("password").expect("Required .env variable missing: password"),
+            password: SecretString::new(
+                var("password").expect("Required .env variable missing: password"),
+            ),
             client: client_builder
                 .set_max_logging_length(99999999)
                 .build(format!("https://{}:443/api/v1/api.php", website))
                 .unwrap(),
-            session_id: var("session_id").ok(),
+            session_id: session_id,
             forum_ids: forum_ids,
             cafs: None,
             subforum_ids: subforum_ids,
             keep_going: var("keep_going")
                 .unwrap_or("false".to_string())
+                .parse()
+                .unwrap(),
+            do_images: var("do_images")
+                .unwrap_or("true".to_string())
                 .parse()
                 .unwrap(),
             req_client: reqwest::Client::new(),
@@ -115,11 +128,11 @@ async fn main() -> anyhow::Result<()> {
                 if state.session_id.is_none() {
                     let resp = state
                         .client
-                        .login(&state.email, &state.password)
+                        .login(&state.email, &state.password.expose_secret())
                         .await
                         .expect("Login failed");
-                    println!("{}", resp.session_id);
-                    state.session_id = Some(resp.session_id);
+                    println!("Your session ID is: {}", resp.session_id);
+                    state.session_id = Some(SecretString::new(resp.session_id));
                 }
 
                 //If we can't get a session id by now, let's just exit the program
