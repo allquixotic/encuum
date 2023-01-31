@@ -197,6 +197,12 @@ impl ForumDoer {
             if maybe_gfr.is_err() {
                 let e = maybe_gfr.unwrap_err();
                 let f = format!("Subforum: {}, Try #{}: {}", forum_id, tries, e);
+                dbg!(&f);
+                //The user doesn't have access to the forum. This isn't fatal for extracting what we can; log it and keep going
+                if e.to_string().contains("noaccess") || e.to_string().contains("thread has been moved") || e.to_string().contains("The result is empty") {
+                    println!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
+                    return None;
+                }
                 if tries >= 5 {
                     if self.state.keep_going {
                         return None;
@@ -204,7 +210,7 @@ impl ForumDoer {
                         panic!("{}", f);
                     }
                 }
-                dbg!(f);
+                
                 tries += 1;
                 calculate_and_sleep(&Thing::ForumIndex, forum_id, &e, &tries).await;
             } else {
@@ -233,6 +239,12 @@ impl ForumDoer {
             match maybe_gtr {
                 Err(e) => {
                     let f = format!("Thread: {}, Try #{}: {}", thread_id, tries, e);
+                    dbg!(&f);
+                    //The user doesn't have access to the forum. This isn't fatal for extracting what we can; log it and keep going
+                    if e.to_string().contains("noaccess") || e.to_string().contains("thread has been moved") || e.to_string().contains("The result is empty") {
+                        println!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
+                        return None;
+                    }
                     if tries >= 5 {
                         if self.state.keep_going {
                             return None;
@@ -240,7 +252,7 @@ impl ForumDoer {
                             panic!("{}", f);
                         }
                     }
-                    dbg!(f);
+                    
                     tries += 1;
                     calculate_and_sleep(&Thing::Thread, thread_id, &e, &tries).await;
                 }
