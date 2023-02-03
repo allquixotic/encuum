@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
 use secrecy::ExposeSecret;
+use tracing::{info, debug, warn};
 use std::{
     collections::{HashMap, HashSet},
     time::Duration,
@@ -82,7 +83,7 @@ pub async fn calculate_and_sleep(thing: &Thing, thing_id: &String, e: &Error, tr
     let mut dur: u32 = 30;
     if e.to_string().contains("status code: 429") {
         dur = 30 + (60 * tries * tries); // 30 + 60x^2 quadratic backoff
-        println!("For {:?} {}: HTTP response code 429 means Enjin rate-limited us for going too fast! Waiting {} seconds.",
+        warn!("For {:?} {}: HTTP response code 429 means Enjin rate-limited us for going too fast! Waiting {} seconds.",
         thing, thing_id, dur);
     }
     tokio::time::sleep(Duration::from_secs(dur.into())).await;
@@ -91,30 +92,30 @@ pub async fn calculate_and_sleep(thing: &Thing, thing_id: &String, e: &Error, tr
 impl ForumDoer {
     /// Since image downloads are unreliable anyway, we just print out errors and keep going
     pub async fn download_image(&self, url: String) {
-        println!("download_image({:?})", url);
+        debug!("download_image({:?})", url);
 
         let db_find = images::Entity::find_by_id(url.to_string())
             .one(&self.state.conn)
             .await;
 
         if db_find.is_err() {
-            dbg!(db_find.unwrap_err());
+            warn!("{:#?}", db_find.unwrap_err());
             return;
         }
 
         let db_result = db_find.unwrap();
         if db_result.is_some() {
-            println!("Already have image; not downloading again: {}", url);
+            info!("Already have image; not downloading again: {}", url);
             return;
         }
         let req = self.state.req_client.get(&url).send().await;
         if req.is_err() {
-            dbg!(req.unwrap_err());
+            warn!("{:#?}", req.unwrap_err());
             return;
         }
         let maybe_bytes = req.unwrap().bytes().await;
         if maybe_bytes.is_err() {
-            dbg!(maybe_bytes.unwrap_err());
+            warn!("{:#?}", maybe_bytes.unwrap_err());
             return;
         }
         let bytes = maybe_bytes.unwrap();
@@ -125,12 +126,12 @@ impl ForumDoer {
         .exec(&self.state.conn)
         .await;
         if maybe_exec.is_err() {
-            dbg!(maybe_exec.unwrap_err());
+            warn!("{:#?}", maybe_exec.unwrap_err());
         }
     }
 
     pub async fn get_images(&self, post_id: String, post_content: String) {
-        println!("get_images({:?})", post_id);
+        debug!("get_images({:?})", post_id);
         let matches = IMG_RX.captures_iter(&post_content);
 
         for mmatch in matches {
@@ -140,13 +141,11 @@ impl ForumDoer {
     }
 
     pub async fn get_preset_retry(&self, preset_id: &String) -> Option<GetCafResult> {
-        println!("get_preset_retry({:?})", preset_id);
+        debug!("get_preset_retry({:?})", preset_id);
         let mut tries = 1;
 
         loop {
-            let maybe_caf = self
-                .state
-                .client
+            let maybe_caf = SEE
                 .get_categories_and_forums(
                     &self.state.session_id.as_ref().unwrap().expose_secret(),
                     preset_id,
@@ -162,12 +161,12 @@ impl ForumDoer {
                             panic!("{}", f);
                         }
                     }
-                    dbg!(f);
+                    warn!("{:#?}", f);
                     tries += 1;
                     calculate_and_sleep(&Thing::Preset, preset_id, &e, &tries).await;
                 }
                 Ok(caf) => {
-                    println!(
+                    info!(
                         "got a site forum instance (aka prefix or caf) {} called {}",
                         preset_id, &caf.settings.title_welcome
                     );
@@ -182,12 +181,10 @@ impl ForumDoer {
         forum_id: &String,
         page: Option<String>,
     ) -> Option<GetForumResult> {
-        println!("get_forum_index_retry({:?}, {:?})", forum_id, page);
+        debug!("get_forum_index_retry({:?}, {:?})", forum_id, page);
         let mut tries = 1;
         loop {
-            let maybe_gfr = self
-                .state
-                .client
+            let maybe_gfr = SEE
                 .get_forum(
                     &self.state.session_id.as_ref().unwrap().expose_secret(),
                     &forum_id,
@@ -197,10 +194,13 @@ impl ForumDoer {
             if maybe_gfr.is_err() {
                 let e = maybe_gfr.unwrap_err();
                 let f = format!("Subforum: {}, Try #{}: {}", forum_id, tries, e);
-                dbg!(&f);
+                warn!("{:#?}", &f);
                 //The user doesn't have access to the forum. This isn't fatal for extracting what we can; log it and keep going
-                if e.to_string().contains("noaccess") || e.to_string().contains("thread has been moved") || e.to_string().contains("The result is empty") {
-                    println!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
+                if e.to_string().contains("noaccess")
+                    || e.to_string().contains("thread has been moved")
+                    || e.to_string().contains("The result is empty")
+                {
+                    info!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
                     return None;
                 }
                 if tries >= 5 {
@@ -210,7 +210,7 @@ impl ForumDoer {
                         panic!("{}", f);
                     }
                 }
-                
+
                 tries += 1;
                 calculate_and_sleep(&Thing::ForumIndex, forum_id, &e, &tries).await;
             } else {
@@ -224,12 +224,10 @@ impl ForumDoer {
         thread_id: &String,
         page: Option<String>,
     ) -> Option<GetThreadResult> {
-        println!("get_thread_index_retry({}, {:?})", thread_id, page);
+        debug!("get_thread_index_retry({}, {:?})", thread_id, page);
         let mut tries = 1;
         loop {
-            let maybe_gtr = self
-                .state
-                .client
+            let maybe_gtr = SEE
                 .get_thread(
                     &self.state.session_id.as_ref().unwrap().expose_secret(),
                     thread_id,
@@ -239,10 +237,13 @@ impl ForumDoer {
             match maybe_gtr {
                 Err(e) => {
                     let f = format!("Thread: {}, Try #{}: {}", thread_id, tries, e);
-                    dbg!(&f);
+                    warn!(f);
                     //The user doesn't have access to the forum. This isn't fatal for extracting what we can; log it and keep going
-                    if e.to_string().contains("noaccess") || e.to_string().contains("thread has been moved") || e.to_string().contains("The result is empty") {
-                        println!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
+                    if e.to_string().contains("noaccess")
+                        || e.to_string().contains("thread has been moved")
+                        || e.to_string().contains("The result is empty")
+                    {
+                        warn!("Continuing anyway because this is not fatal. Your extraction may be incomplete.");
                         return None;
                     }
                     if tries >= 5 {
@@ -252,7 +253,7 @@ impl ForumDoer {
                             panic!("{}", f);
                         }
                     }
-                    
+
                     tries += 1;
                     calculate_and_sleep(&Thing::Thread, thread_id, &e, &tries).await;
                 }
@@ -264,7 +265,7 @@ impl ForumDoer {
     }
 
     pub async fn get_subforums(&self, subforum_ids: Vec<&String>) -> Vec<GetForumResult> {
-        println!("get_subforums({:#?})", subforum_ids);
+        debug!("get_subforums({:#?})", subforum_ids);
         let mut retval: Vec<GetForumResult> = vec![];
         let mut page_map: HashMap<String, u32> = HashMap::new();
         let mut futs = FuturesUnordered::new();
@@ -285,7 +286,7 @@ impl ForumDoer {
             if let Some(pn) = page_num {
                 page_map.insert(y.forum.forum_id.clone(), pn);
             }
-            println!("Got Page 1 of the Forum Index for {}", y.forum.forum_id);
+            info!("Got Page 1 of the Forum Index for {}", y.forum.forum_id);
             whoa(&mut arl).await;
             retval.push(y);
         }
@@ -306,7 +307,7 @@ impl ForumDoer {
                 continue;
             }
             let xu = x.unwrap();
-            println!(
+            info!(
                 "Got Page {:?}/{:?} for Forum {} from Preset {}",
                 xu.page, xu.pages, xu.forum.forum_id, xu.forum.preset_id
             );
@@ -318,7 +319,7 @@ impl ForumDoer {
     }
 
     pub async fn get_threads(&self, mut thread_ids: Vec<String>) -> Vec<GetThreadResult> {
-        println!("get_threads({:#?})", thread_ids);
+        debug!("get_threads({:#?})", thread_ids);
         let mut retval = vec![];
         let mut page_map: HashMap<String, u32> = HashMap::new();
         let mut futs = FuturesUnordered::new();
@@ -340,7 +341,7 @@ impl ForumDoer {
                 page_map.insert(y.thread.thread_id.clone(), pn);
             }
             whoa(&mut arl).await;
-            println!(
+            info!(
                 "Got Page 1 of Thread {} from Forum {}",
                 y.thread.thread_id, &y.thread.forum_id
             );
@@ -363,7 +364,7 @@ impl ForumDoer {
                 continue;
             }
             let xu = x.unwrap();
-            println!(
+            info!(
                 "Got Thread {} from Forum {}",
                 xu.thread.thread_id, xu.thread.forum_id
             );
@@ -375,7 +376,7 @@ impl ForumDoer {
     }
 
     pub async fn save_preset(&self, preset_id: &String, caf: &GetCafResult) {
-        println!("save_preset({})", preset_id);
+        debug!("save_preset({})", preset_id);
         let categories = &caf.category_names;
 
         for (cid, cn) in categories {
@@ -419,7 +420,7 @@ impl ForumDoer {
     }
 
     pub async fn save_subforum(&self, gfr: &GetForumResult) {
-        println!("save_subforum({})", gfr.forum.forum_id);
+        debug!("save_subforum({})", gfr.forum.forum_id);
         let mut futs = FuturesUnordered::new();
 
         subforums::Entity::insert(subforums::ActiveModel {
@@ -487,7 +488,7 @@ impl ForumDoer {
     }
 
     pub async fn save_threads(&self, gtrs: &Vec<GetThreadResult>) {
-        println!("save_threads()");
+        debug!("save_threads()");
         for gtr in gtrs {
             for post in &gtr.posts {
                 forum_posts::Entity::insert(forum_posts::ActiveModel {
@@ -550,14 +551,14 @@ impl ForumDoer {
                             all_subforums.push(sf.forum_id.clone());
                         }
                     }
-                },
+                }
                 SubforumType::SeqSubforum(s) => {
                     for x in s {
                         all_subforums.push(x.clone());
                     }
                 }
             }
-            
+
             //Add the "categories" top-level forums.
             for foru in caf.categories.values() {
                 for (fid, _) in foru {
@@ -582,7 +583,7 @@ impl ForumDoer {
                         return true;
                     }
                 }));
-            println!(
+            info!(
                 "*** Total number of forums and subforums to scan: {}",
                 allowed_subforums.len()
             );
@@ -619,7 +620,7 @@ impl ForumDoer {
                 }
             }
         }
-        println!("*** Done extracting forums.");
+        info!("*** Done extracting forums.");
         Ok(())
     }
 }

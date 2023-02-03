@@ -4,6 +4,11 @@
 pub mod forum;
 pub mod structures;
 
+
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -11,31 +16,21 @@ use std::time::Duration;
 use crate::forum::*;
 use crate::structures::*;
 use dotenvy::var;
-use jsonrpsee::{core::client::IdKind, http_client::HttpClientBuilder, ws_client::HeaderMap};
 use lazy_static::lazy_static;
 use migration::Migrator;
 use migration::MigratorTrait;
+
 use sea_orm::Database;
 use secrecy::ExposeSecret;
 use secrecy::SecretString;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
+use tracing::Level;
+use tracing::info;
+use tracing::warn;
 
 impl State {
     pub async fn new() -> Self {
-        let proxy = var("proxy").ok();
-        let website = var("website").expect("Required .env variable missing: website");
-        let mut headers = HeaderMap::new();
-        headers.insert("Accept", "*/*".parse().unwrap());
-        headers.insert("User-Agent", "encuum-api".parse().unwrap());
-        let mut client_builder = HttpClientBuilder::default()
-            .set_headers(headers)
-            .id_format(IdKind::String)
-            .request_timeout(Duration::from_secs(600));
-        if proxy.as_ref().is_some() {
-            client_builder = client_builder.set_proxy(proxy.as_ref().unwrap()).unwrap();
-        }
-
         let forum_preset_ids = var("forum_ids").ok();
         let forum_ids: Option<Vec<String>> = match forum_preset_ids {
             Some(fpis) => Some(fpis.split(",").map(|s| s.to_string()).collect()),
@@ -66,10 +61,6 @@ impl State {
             password: SecretString::new(
                 var("password").expect("Required .env variable missing: password"),
             ),
-            client: client_builder
-                .set_max_logging_length(99999999)
-                .build(format!("https://{}:443/api/v1/api.php", website))
-                .unwrap(),
             session_id: session_id,
             forum_ids: forum_ids,
             cafs: None,
@@ -82,6 +73,10 @@ impl State {
                 .unwrap_or("true".to_string())
                 .parse()
                 .unwrap(),
+            sanitize_log: var("sanitize_log")
+                .unwrap_or("false".to_string())
+                .parse()
+                .unwrap(),
             req_client: reqwest::Client::new(),
             conn: conn,
         }
@@ -92,12 +87,50 @@ lazy_static! {
     static ref STOPPIT: AtomicBool = AtomicBool::new(false);
 }
 
+struct MultiWriter {
+    writers: Vec<Box<dyn Write + Send + Sync>>,
+}
+
+impl Write for MultiWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        for writer in self.writers.iter_mut() {
+            writer.write(buf)?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        for writer in self.writers.iter_mut() {
+            writer.flush()?;
+        }
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .try_init()
-        .expect("setting default subscriber failed");
+
+    let mut writers: Vec<Box<dyn Write + Send + Sync>> = vec![(Box::new(std::io::stderr()))];
+    if let Some(log_file) = var("log_file").ok() {
+        writers.push(Box::new(BufWriter::new(File::create(log_file).unwrap())));
+    }
+    let mw = Mutex::new(MultiWriter { writers });
+
+    let tsb = tracing_subscriber::FmtSubscriber::builder()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_ansi(false)
+        .with_writer(mw);
+
+    if let Ok(log_level) = var("log_level") {
+        match log_level.to_uppercase().as_str() {
+            "TRACE" => tsb.with_max_level(Level::TRACE),
+            "DEBUG" => tsb.with_max_level(Level::DEBUG),
+            "INFO" => tsb.with_max_level(Level::INFO),
+            "WARN" => tsb.with_max_level(Level::WARN),
+            "ERROR" => tsb.with_max_level(Level::ERROR),
+            _ => tsb.with_max_level(Level::INFO)
+        }
+        .try_init().expect("setting default subscriber failed");
+    }   
 
     let sched = JobScheduler::new().await?;
 
@@ -106,14 +139,14 @@ async fn main() -> anyhow::Result<()> {
             Duration::from_secs(60),
             |_a, _schedd| match memory_stats::memory_stats() {
                 Some(ms) => {
-                    println!(
+                    info!(
                         "*** encuum memory usage: {} bytes ({} MB)",
                         ms.physical_mem,
                         ms.physical_mem / 1000000
                     );
                 }
                 None => {
-                    println!("*** unable to get encuum memory usage");
+                    warn!("*** unable to get encuum memory usage");
                 }
             },
         )?;
@@ -126,12 +159,13 @@ async fn main() -> anyhow::Result<()> {
             Box::pin(async move {
                 let mut state = State::new().await;
                 if state.session_id.is_none() {
-                    let resp = state
-                        .client
+                    let resp = SEE
                         .login(&state.email, &state.password.expose_secret())
                         .await
-                        .expect("Login failed");
-                    println!("Your session ID is: {}", resp.session_id);
+                        .expect("FATAL ERROR: Login failed");
+                    if !state.sanitize_log {
+                        info!("Your session ID is: {}", resp.session_id);
+                    }
                     state.session_id = Some(SecretString::new(resp.session_id));
                 }
 
@@ -139,16 +173,16 @@ async fn main() -> anyhow::Result<()> {
                 state
                     .session_id
                     .as_ref()
-                    .expect("Can't get a valid session ID. Check your username and password.");
+                    .expect("FATAL ERROR: Can't get a valid session ID. Check your username and password.");
 
                 if state.forum_ids.is_some() {
                     let fd = ForumDoer { state: state };
                     fd.get_forums().await.unwrap();
                 } else {
-                    println!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
+                    warn!("You didn't specify the environment variable `forum_ids`, so the tool is not going to extract anything from the forums. If this isn't what you intended, modify your .env file (or environment variable) for forum_ids according to the instructions in README.md.");
                 }
                 STOPPIT.store(true, Ordering::Relaxed);
-                println!("*** Stopping tasks...");
+                info!("*** Stopping tasks...");
                 schedd.shutdown().await.unwrap();
             })
         },
@@ -161,7 +195,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         tokio::time::sleep(core::time::Duration::from_secs(10)).await;
         if STOPPIT.load(Ordering::Relaxed) {
-            println!("Exiting.");
+            info!("Encuum exited normally.");
             break;
         }
     }

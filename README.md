@@ -51,6 +51,10 @@ Create a plain text file called `.env` in the encuum source directory. Then set 
 | `subforum_ids`  | No       | blank   | A comma-separated list of subforum IDs to extract into the database. **Any subforum whose ID is not included in this list will _not_ be extracted or navigated.** This is useful if you know that you only care about specific subforums and you have a lot of posts in your forum in other subforums that you don't want to backup. Subforum IDs are the number after `/viewforum/` in the Enjin URL. You have to click on a specific subforum to get its ID. The URL path is usually of the form `/someforums/viewforum/12345/m/67890`, where in this example, `12345` is the subforum_id, and `67890` is the preset_id, also known as forum_id or forum instance ID. |
 | `keep_going`    | No       | false   | Specify `true` or `false` as the value. `true` means we attempt to keep running the script if Enjin returns invalid data to us. This could mask bugs in the encuum code, so make sure to save the output of the program if you turn this on. `false` means that encuum will exit if it receives 5 errors in a row for the same request. For example, if we ask to retrieve a particular forum thread, and get invalid data, or a timeout, 5 times in a row, the program will fail out and exit with  `keep_going=false`. With `keep_going=true`, it will print out the error, but then just move on to the next thread.            |
 | `do_images`     | No       | true    | Specify `true` or `false` as the value. `true` means we try to download images we find in "img" tags in bbcode posts. False means we don't try to download images and the "images" table in the DB will be empty.                                           |
+| `log_level`     | No       | INFO    | Specify the desired log level. This determines how much information is printed to the console during program execution. From least to most information, the acceptable values are: ERROR, WARN, INFO, DEBUG, TRACE. If you are reporting an issue, please use TRACE. Be sure to remove cookies and other sensitive credentials before sharing it on GitHub!                                           |
+| `log_file`      | No       | blank   | Specify a file where the logs should be stored. The same logs will both be printed to the terminal, and saved to this file. Be sure to remove cookies and other sensitive credentials before sharing it on GitHub!                                           |
+| `sanitize_log`  | No       | false   | Specify `true` to have the program attempt to suppress printing/logging sensitive information (passwords, session tokens, etc.) Currently this does **NOT** sanitize HTTP request and response bodies when the log level is DEBUG or TRACE.                                           |
+
 
 ## Example .env file:
 
@@ -75,11 +79,30 @@ This is beyond the scope of what encuum can help you with, but you will need to 
 
 I can provide general tips if you give me specifics about where you're trying to import, but I probably won't have time to write code for you.
 
-## Troubleshooting Encuum
+## Filing a Bug in Encuum
 
-The error messaging available within Encuum may appear limited, but it's easy to install an intercepting proxy that will give us excellent debug info on what's going on and why a transaction is failing.
+By helping me with these reports, we'll work through the remaining bugs in Encuum.
 
-If you encounter something like a "Parse Error" while running Encuum, download an intercepting HTTP proxy, such as [Proxyman](https://proxyman.io/). Install it and launch it. You don't have to make an account.
+### Option 1: Using the log files
+
+To submit a bug report on Encuum, the best way is to set the logging settings in your .env as follows:
+
+```
+log_level=DEBUG
+sanitize_log=true
+log_file=something.log
+keep_going=false
+```
+
+Of course, you will also need to set all the **required** configuration settings, too (email, password, website and database_file).
+
+Now, run `cargo run --release` again, and let it run until you notice a failure on the command line. Then go ahead and hit Ctrl+C or otherwise close the program to stop its execution. 
+
+Then, open up the log file you saved (the name of the file is given by the `log_file` config setting) in a text editor. Remove anything that doesn't appear to pertain to the specific request/response that errored out. Then submit the result to a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Before you post anything online, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with a description of what you were trying to do.
+
+### Option 2: Using an HTTP Proxy
+
+Another way to collect HTTP payloads is to download and configure an intercepting HTTP proxy, such as [Proxyman](https://proxyman.io/). Install it and launch it. You don't have to make an account.
 
 Then, proxyman will show the listening IP address and port at the top of the screen. Plug that info into your `.env` configuration file. For example, if proxyman says it's listening on `http://127.0.0.1:9091` then you'd write this in your `.env` file:
 
@@ -87,9 +110,8 @@ Then, proxyman will show the listening IP address and port at the top of the scr
 
 Once it's running, follow the directions to [enable TLS (aka HTTPS) support in Proxyman](https://docs.proxyman.io/basic-features/ssl-proxying). You may have to run Encuum to whitelist HTTPS decryption of your website's traffic. The instructions to enable the required TLS certificate are [HERE](https://docs.proxyman.io/proxyman-windows/install-certificate).
 
-Now, re-run Encuum as directed once more via `cargo run --release`. This will cause your Proxyman window to fill up with requests to your guild website. Keep it running until Encuum fails, then copy the "Raw" contents of the last request and response bodies (I need both request *and* response) into a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Lastly, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with the error message you received from Encuum.
+Now, re-run Encuum as directed once more via `cargo run --release`. This will cause your Proxyman window to fill up with requests to your guild website. Keep it running until Encuum fails, then copy the "Raw" contents of the last request and response bodies (I need both request *and* response) into a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Before you post anything online, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with a description of what you were trying to do.
 
-By helping me with these reports, we'll work through the remaining bugs in Encuum.
 
 ## Development Status
 
@@ -125,8 +147,9 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
 ### Code features
  - [x] Support for wait-and-retry when Enjin API times out or fails
  - [x] Proxy support
- - [ ] Refactoring
- - [ ] Bug fixing
+ - [x] Refactoring (for forums)
+ - [x] Bug fixing (for forums)
+ - [x] Good logging infrastructure
 
 # Known Issues
 
