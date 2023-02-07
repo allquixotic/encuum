@@ -3,6 +3,8 @@
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 pub mod forum;
 pub mod structures;
+pub mod helpers;
+pub mod applications;
 
 
 use std::fs::File;

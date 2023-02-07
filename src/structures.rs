@@ -108,3 +108,18 @@ pub struct GetCafResult {
     pub category_names: HashMap<String, String>,
     pub categories: HashMap<String, HashMap<String, Subforum>>,
 }
+
+#[derive(Deserialize)]
+pub struct GetApplicationsListResult {
+
+}
+
+#[derive(Deserialize)]
+pub struct GetApplicationTypesResult {
+
+}
+
+#[derive(Deserialize)]
+pub struct GetApplicationResult {
+
+}
