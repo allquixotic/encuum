@@ -8,6 +8,7 @@ use jsonrpsee::{
     core::{__reexports::serde::Deserialize, client::IdKind},
     http_client::{transport::HttpBackend, HttpClient, HttpClientBuilder},
 };
+use once_cell::sync::OnceCell;
 use reqwest::Client;
 use sea_orm::DatabaseConnection;
 use secrecy::SecretString;
@@ -49,15 +50,32 @@ lazy_static::lazy_static! {
     };
 }
 
+pub static STATE: OnceCell<State> = OnceCell::new();
+
+#[macro_export]
+macro_rules! state {
+    () => {
+        STATE.get().expect("State not initialized")
+    };
+}
+
+#[macro_export]
+macro_rules! exposed_session {
+    () => {
+        &state!().session_id.as_ref().unwrap().expose_secret()
+    };
+}
+
+#[derive(Debug)]
 pub struct State {
     pub email: String,
     pub password: SecretString,
     pub session_id: Option<SecretString>,
     pub forum_ids: Option<Vec<String>>,
-    pub cafs: Option<Vec<GetCafResult>>,
     pub subforum_ids: Option<Vec<String>>,
     pub keep_going: bool,
     pub do_images: bool,
+    pub do_apps: bool,
     pub sanitize_log: bool,
     pub req_client: Client,
     pub conn: DatabaseConnection,
@@ -77,6 +95,7 @@ pub struct ForumSettings {
 pub struct GetForumResult {
     pub sticky: Vec<ForumThread>,
     pub threads: Vec<ForumThread>,
+    pub notices: Vec<ForumThread>,
     pub announcement_local: Vec<ForumThread>,
     pub announcement_global: Vec<ForumThread>,
     pub forum: Subforum,
@@ -111,15 +130,10 @@ pub struct GetCafResult {
 
 #[derive(Deserialize)]
 pub struct GetApplicationsListResult {
-
+    pub items: Option<Vec<MiniApp>>,
+    pub total: Option<String>,
 }
-
 #[derive(Deserialize)]
-pub struct GetApplicationTypesResult {
-
-}
-
-#[derive(Deserialize)]
-pub struct GetApplicationResult {
-
+pub struct MiniApp {
+    pub application_id: Option<String>,
 }

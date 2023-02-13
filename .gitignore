@@ -3,3 +3,4 @@
 *.db
 /.vscode
 *.log
+__pycache__

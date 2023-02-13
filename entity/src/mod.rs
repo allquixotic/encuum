@@ -10,3 +10,4 @@ pub mod forum_presets;
 pub mod forum_threads;
 pub mod images;
 pub mod subforums;
+pub mod applications;

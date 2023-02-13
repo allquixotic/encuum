@@ -13,6 +13,8 @@ pub enum Thing {
     Preset,
     ForumIndex,
     Thread,
+    Application,
+    ApplicationList
 }
 
 pub fn parse_number(val: &serde_json::Value) -> Option<u32> {
@@ -40,6 +42,9 @@ pub async fn calculate_and_sleep(thing: &Thing, thing_id: &String, e: &Error, tr
         dur = 30 + (60 * tries * tries); // 30 + 60x^2 quadratic backoff
         warn!("For {:?} {}: HTTP response code 429 means Enjin rate-limited us for going too fast! Waiting {} seconds.",
         thing, thing_id, dur);
+    }
+    else {
+        warn!("For {:?} {}: Error {:?}",thing, thing_id, e);
     }
     tokio::time::sleep(Duration::from_secs(dur.into())).await;
 }
