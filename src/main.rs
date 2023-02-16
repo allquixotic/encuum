@@ -94,7 +94,7 @@ impl State {
                 .parse()
                 .unwrap(),
             do_apps: var("do_apps")
-                .unwrap_or("false".to_string())
+                .unwrap_or("true".to_string())
                 .parse()
                 .unwrap(),
             sanitize_log: sanitize_log,

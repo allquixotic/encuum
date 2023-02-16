@@ -9,7 +9,7 @@ use entity::applications::AppApp;
 use jsonrpsee::proc_macros::rpc;
 use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
 use secrecy::ExposeSecret;
-use tracing::{info, debug, warn};
+use tracing::{info, warn};
 use std::{
     collections::{HashMap},
 };
@@ -48,26 +48,49 @@ trait ApplicationsApi {
 
 //Implement the function save_application to save an AppApp to the sqlite database using sea-orm.
 pub async fn save_application(app: &AppApp) -> anyhow::Result<()> {
-    applications::Entity::insert(applications::ActiveModel {
-        application_id: Set(app.application_id.clone()),
-        site_id: Set(app.site_id.clone()),
-        preset_id: Set(app.preset_id.clone()),
-        title: Set(app.title.clone()),
-        user_ip: Set(app.user_ip.clone()),
-        created: Set(app.created.clone()),
-        username: Set(app.username.clone()),
-        user_id: Set(app.user_id.clone()),
-        user_data: Set(app.user_data.clone()),
-    })
-    .on_conflict(
-        // on conflict do nothing
-        OnConflict::column(applications::Column::ApplicationId)
-            .do_nothing()
-            .to_owned(),
-    )
-    .exec(&state!().conn)
-    .await
-    .expect("Code-up error: can't insert an application into the database!");
+    let existing = applications::Entity::find_by_id(app.application_id.clone())
+        .one(&state!().conn)
+        .await;
+    if existing.is_err() || existing.unwrap().is_none() {
+        applications::Entity::insert(applications::ActiveModel {
+            application_id: Set(app.application_id.clone()),
+            site_id: Set(app.site_id.clone()),
+            preset_id: Set(app.preset_id.clone()),
+            title: Set(app.title.clone()),
+            user_ip: Set(app.user_ip.clone()),
+            created: Set(app.created.clone()),
+            username: Set(app.username.clone()),
+            user_id: Set(app.user_id.clone()),
+            user_data: Set(app.user_data.clone()),
+        })
+        .on_conflict(
+            // on conflict do nothing
+            OnConflict::column(applications::Column::ApplicationId)
+                .do_nothing()
+                .to_owned(),
+        )
+        .exec(&state!().conn)
+        .await
+        .expect("Code-up error: can't insert an application into the database!");
+    }
+    else {
+        let update_result = applications::Entity::update(applications::ActiveModel {
+            application_id: Set(app.application_id.clone()),
+            site_id: Set(app.site_id.clone()),
+            preset_id: Set(app.preset_id.clone()),
+            title: Set(app.title.clone()),
+            user_ip: Set(app.user_ip.clone()),
+            created: Set(app.created.clone()),
+            username: Set(app.username.clone()),
+            user_id: Set(app.user_id.clone()),
+            user_data: Set(app.user_data.clone()),
+        })
+        .exec(&state!().conn)
+        .await;
+        if update_result.is_err() {
+            info!("Failed to update application {} in the database: {}", app.application_id.clone(), update_result.err().unwrap());
+        }
+    }
     Ok(())
 }
 
@@ -75,7 +98,8 @@ pub async fn get_app_list(types: &HashMap<String, String>) -> anyhow::Result<Vec
     let mut retval = vec![];
     for (k, _v) in types {
         //Enumerate each page of the application list and add the application ID of each item to retval.
-        let mut total = 0;
+        let mut apps = vec![];
+        let mut claimed_total: u32 = 0;
         let mut page = 1;
         let mut retries: u32 = 0;
         loop {
@@ -84,16 +108,22 @@ pub async fn get_app_list(types: &HashMap<String, String>) -> anyhow::Result<Vec
                 if let Some(gars) = gar_result.items {
                     for gar in gars {
                         if let Some(appid) = gar.application_id {
-                            retval.push(appid);
+                            apps.push(appid);
                         }
                     }
                 }
                 if gar_result.total.is_none() || gar_result.total.clone().unwrap().parse::<u32>().is_err() {
+                    warn!("Total applications is not a number! This is probably a bug.");
                     break;
                 }
-                let resp_tot = gar_result.total.unwrap().parse::<u32>().unwrap();
-                total += resp_tot;
-                if total >= resp_tot {
+                //I'll hold you to the total you give me on the first call.
+                if page == 1 {
+                    let resp_tot = gar_result.total.unwrap().parse::<u32>().unwrap();
+                    claimed_total = resp_tot;
+                }
+                info!("So far, got {} applications of type {}; Enjin promised us {}", apps.len(), k, claimed_total);
+                if apps.len() >= claimed_total.try_into().unwrap() {
+                    info!("END OF APP CATEGORY: Got {} applications of type {}; Enjin promised us {}", apps.len(), k, claimed_total);
                     break;
                 }
                 page += 1;
@@ -106,6 +136,7 @@ pub async fn get_app_list(types: &HashMap<String, String>) -> anyhow::Result<Vec
                 }
             }
         }
+        retval.extend(apps);
     }
     Ok(retval)
 }

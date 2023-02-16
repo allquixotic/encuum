@@ -17,8 +17,7 @@ pub struct Model {
     pub created: Option<String>,
     pub username: Option<String>,
     pub user_id: Option<String>,
-    #[serde(flatten)]
-    pub user_data: Option<String>,
+    pub user_data: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
