@@ -19,7 +19,7 @@ dotenvy = "0"
 maplit = "1"
 tracing-subscriber = { version = "0", features = ["env-filter"] }
 tracing = "0"
-jsonrpsee = { git = "https://github.com/allquixotic/jsonrpsee", branch = "http-proxy", features = ["full"] } 
+jsonrpsee = { git = "https://github.com/allquixotic/jsonrpsee", branch = "allquixotic-hacks", features = ["full"] } 
 tower = { version = "0", features = ["full"] }
 hyper = { version = "0.14", features = ["client", "http1", "http2", "tcp"] }
 tower-http = { version = "0", features = ["full"] }
@@ -33,3 +33,4 @@ entity = { path = "entity" }
 memory-stats = "1"
 tokio-cron-scheduler = "0"
 secrecy = { version = "0", features = ["serde"] }
+once_cell = "1"

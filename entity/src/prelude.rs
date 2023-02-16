@@ -8,3 +8,4 @@ pub use super::forum_presets::Entity as ForumPresets;
 pub use super::forum_threads::Entity as ForumThreads;
 pub use super::images::Entity as Images;
 pub use super::subforums::Entity as Subforums;
+pub use super::applications::Entity as Applications;
