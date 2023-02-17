@@ -67,7 +67,7 @@ impl State {
 
         if session_id.is_none() {
             let resp = SEE
-                .login(&state!().email, &password)
+                .login(&email, &password)
                 .await
                 .expect("FATAL ERROR: Login failed");
             if sanitize_log {
