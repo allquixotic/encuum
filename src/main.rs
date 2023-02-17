@@ -29,6 +29,7 @@ use tokio_cron_scheduler::JobScheduler;
 use tracing::info;
 use tracing::warn;
 use tracing::Level;
+use tracing_subscriber::EnvFilter;
 
 impl State {
     pub async fn new() -> Self {
@@ -140,7 +141,7 @@ async fn main() -> anyhow::Result<()> {
     let mw = Mutex::new(MultiWriter { writers });
 
     let tsb = tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(EnvFilter::from_default_env().add_directive("sqlx=warn".parse().unwrap()))
         .with_ansi(false)
         .with_writer(mw);
 

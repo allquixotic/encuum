@@ -14,6 +14,7 @@ use regex::Regex;
 use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
 use secrecy::ExposeSecret;
 use std::collections::{HashMap, HashSet};
+use std::iter::*;
 use tracing::{debug, info, warn};
 
 #[rpc(client)]
@@ -379,7 +380,16 @@ pub async fn save_subforum(gfr: &GetForumResult) {
         true
     );
 
-    for thread in &gfr.threads {
+    let all_threads = gfr
+        .threads
+        .to_owned()
+        .into_iter()
+        .chain(gfr.announcement_global.to_owned().into_iter())
+        .chain(gfr.announcement_local.to_owned().into_iter())
+        .chain(gfr.sticky.to_owned().into_iter())
+        .chain(gfr.notices.to_owned().into_iter());
+
+    for thread in all_threads {
         let am = forum_threads::ActiveModel {
             thread_id: Set(thread.thread_id.clone()),
             thread_subject: Set(thread.thread_subject.clone()),
@@ -497,6 +507,12 @@ pub async fn get_forums() -> anyhow::Result<()> {
             for inv in &gfr.threads {
                 inval.push(inv.thread_id.clone());
             }
+            debug!(
+                "Sticky thread count for GFR page {} for forum {}: {}",
+                gfr.page,
+                gfr.forum.forum_id,
+                gfr.sticky.len()
+            );
             for inv in &gfr.sticky {
                 inval.push(inv.thread_id.clone());
             }
