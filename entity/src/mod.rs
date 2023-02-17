@@ -4,10 +4,10 @@
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 pub mod prelude;
 
+pub mod applications;
 pub mod category_names;
 pub mod forum_posts;
 pub mod forum_presets;
 pub mod forum_threads;
 pub mod images;
 pub mod subforums;
-pub mod applications;

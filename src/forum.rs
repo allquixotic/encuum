@@ -1,10 +1,11 @@
+use crate::dumbsert;
+use crate::exposed_session;
+use crate::helpers::*;
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 use crate::state;
-use crate::exposed_session;
 use crate::structures::*;
-use crate::helpers::*;
 use entity::*;
 use futures::{stream::FuturesUnordered, StreamExt};
 use jsonrpsee::proc_macros::rpc;
@@ -12,10 +13,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sea_orm::{sea_query::OnConflict, EntityTrait, Set};
 use secrecy::ExposeSecret;
-use tracing::{info, debug, warn};
-use std::{
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
+use tracing::{debug, info, warn};
 
 #[rpc(client)]
 trait ForumApi {
@@ -49,7 +48,6 @@ trait ForumApi {
 lazy_static! {
     pub static ref IMG_RX: Regex = Regex::new(r"(?i)\[img]\s*(https?://.+?)\s*\[/img]").unwrap();
 }
-
 
 /// Since image downloads are unreliable anyway, we just print out errors and keep going
 pub async fn download_image(url: String) {
@@ -107,10 +105,7 @@ pub async fn get_preset_retry(preset_id: &String) -> Option<GetCafResult> {
 
     loop {
         let maybe_caf = SEE
-            .get_categories_and_forums(
-                exposed_session!(),
-                preset_id,
-            )
+            .get_categories_and_forums(exposed_session!(), preset_id)
             .await;
         match maybe_caf {
             Err(e) => {
@@ -145,11 +140,7 @@ pub async fn get_forum_index_retry(
     let mut tries = 1;
     loop {
         let maybe_gfr = SEE
-            .get_forum(
-                exposed_session!(),
-                &forum_id,
-                page.as_ref(),
-            )
+            .get_forum(exposed_session!(), &forum_id, page.as_ref())
             .await;
         if maybe_gfr.is_err() {
             let e = maybe_gfr.unwrap_err();
@@ -187,11 +178,7 @@ pub async fn get_thread_index_retry(
     let mut tries = 1;
     loop {
         let maybe_gtr = SEE
-            .get_thread(
-                exposed_session!(),
-                thread_id,
-                page.as_ref(),
-            )
+            .get_thread(exposed_session!(), thread_id, page.as_ref())
             .await;
         match maybe_gtr {
             Err(e) => {
@@ -339,22 +326,20 @@ pub async fn save_preset(preset_id: &String, caf: &GetCafResult) {
     let categories = &caf.category_names;
 
     for (cid, cn) in categories {
-        category_names::Entity::insert(category_names::ActiveModel {
+        let am = category_names::ActiveModel {
             category_id: Set(cid.to_string()),
             category_name: Set(cn.to_string()),
-        })
-        .on_conflict(
-            // on conflict do nothing
-            OnConflict::column(category_names::Column::CategoryId)
-                .do_nothing()
-                .to_owned(),
-        )
-        .exec(&state!().conn)
-        .await
-        .expect("Code-up error: can't insert a category name into the database!");
+        };
+        dumbsert!(
+            category_names::Entity,
+            &am,
+            category_names::Column::CategoryId,
+            "Error saving category to database",
+            true
+        );
     }
 
-    forum_presets::Entity::insert(forum_presets::ActiveModel {
+    let am = forum_presets::ActiveModel {
         preset_id: Set(preset_id.to_string()),
         title_welcome: Set(caf.settings.title_welcome.clone()),
         total_threads: Set(parse_number(&caf.total_threads)
@@ -362,27 +347,20 @@ pub async fn save_preset(preset_id: &String, caf: &GetCafResult) {
             .try_into()
             .unwrap()),
         total_posts: Set(parse_number(&caf.total_posts).unwrap().try_into().unwrap()),
-    })
-    .on_conflict(
-        // on conflict do nothing
-        OnConflict::column(forum_presets::Column::PresetId)
-            .update_columns([
-                forum_presets::Column::TitleWelcome,
-                forum_presets::Column::TotalPosts,
-                forum_presets::Column::TotalThreads,
-            ])
-            .to_owned(),
-    )
-    .exec(&state!().conn)
-    .await
-    .expect("Code-up error: can't insert a forum preset into the database!");
+    };
+    dumbsert!(
+        forum_presets::Entity,
+        &am,
+        forum_presets::Column::PresetId,
+        "Error saving preset to database",
+        true
+    );
 }
 
 pub async fn save_subforum(gfr: &GetForumResult) {
     debug!("save_subforum({})", gfr.forum.forum_id);
-    let mut futs = FuturesUnordered::new();
 
-    subforums::Entity::insert(subforums::ActiveModel {
+    let am = subforums::ActiveModel {
         title_welcome: Set(gfr.forum.title_welcome.clone()),
         preset_id: Set(gfr.forum.preset_id.clone()),
         category_id: Set(gfr.forum.category_id.clone()),
@@ -392,57 +370,33 @@ pub async fn save_subforum(gfr: &GetForumResult) {
         forum_description: Set(gfr.forum.forum_description.clone()),
         parent_id: Set(gfr.forum.parent_id.clone()),
         forum_type: Set(gfr.forum.forum_type.clone()),
-    })
-    .on_conflict(
-        // on conflict do nothing
-        OnConflict::column(subforums::Column::ForumId)
-            .update_columns([
-                subforums::Column::TitleWelcome,
-                subforums::Column::PresetId,
-                subforums::Column::CategoryId,
-                subforums::Column::CategoryName,
-                subforums::Column::ForumName,
-                subforums::Column::ForumDescription,
-                subforums::Column::ParentId,
-                subforums::Column::ForumType,
-            ])
-            .to_owned(),
-    )
-    .exec(&state!().conn)
-    .await
-    .expect("Code-up error: can't insert a subforum into the database!");
+    };
+    dumbsert!(
+        subforums::Entity,
+        &am,
+        subforums::Column::ForumId,
+        "Error saving subforum to database",
+        true
+    );
 
     for thread in &gfr.threads {
-        futs.push(
-            forum_threads::Entity::insert(forum_threads::ActiveModel {
-                thread_id: Set(thread.thread_id.clone()),
-                thread_subject: Set(thread.thread_subject.clone()),
-                thread_views: Set(thread.thread_views.clone()),
-                thread_type: Set(thread.thread_type.clone()),
-                thread_status: Set(thread.thread_status.clone()),
-                forum_id: Set(gfr.forum.forum_id.clone()),
-                username: Set(thread.username.clone()),
-                category_id: Set(gfr.forum.category_id.clone()),
-            })
-            .on_conflict(
-                // on conflict do nothing
-                OnConflict::column(forum_threads::Column::ThreadId)
-                    .update_columns([
-                        forum_threads::Column::ThreadSubject,
-                        forum_threads::Column::ThreadViews,
-                        forum_threads::Column::ThreadType,
-                        forum_threads::Column::ThreadStatus,
-                        forum_threads::Column::ForumId,
-                        forum_threads::Column::Username,
-                        forum_threads::Column::CategoryId,
-                    ])
-                    .to_owned(),
-            )
-            .exec(&state!().conn),
+        let am = forum_threads::ActiveModel {
+            thread_id: Set(thread.thread_id.clone()),
+            thread_subject: Set(thread.thread_subject.clone()),
+            thread_views: Set(thread.thread_views.clone()),
+            thread_type: Set(thread.thread_type.clone()),
+            thread_status: Set(thread.thread_status.clone()),
+            forum_id: Set(gfr.forum.forum_id.clone()),
+            username: Set(thread.username.clone()),
+            category_id: Set(gfr.forum.category_id.clone()),
+        };
+        dumbsert!(
+            forum_threads::Entity,
+            &am,
+            forum_threads::Column::ThreadId,
+            "Error saving forum thread to database",
+            true
         );
-    }
-    while let Some(x) = futs.next().await {
-        x.expect("Code-up error: can't insert a forum thread into the database!");
     }
 }
 
@@ -450,7 +404,7 @@ pub async fn save_threads(gtrs: &Vec<GetThreadResult>) {
     debug!("save_threads()");
     for gtr in gtrs {
         for post in &gtr.posts {
-            forum_posts::Entity::insert(forum_posts::ActiveModel {
+            let am = forum_posts::ActiveModel {
                 post_id: Set(post.post_id.clone()),
                 post_time: Set(post.post_time.clone()),
                 post_content: Set(post.post_content.clone()),
@@ -462,27 +416,14 @@ pub async fn save_threads(gtrs: &Vec<GetThreadResult>) {
                 last_edit_user: Set(post.last_edit_user.clone()),
                 post_username: Set(post.post_username.clone()),
                 thread_id: Set(Some(gtr.thread.thread_id.clone())),
-            })
-            .on_conflict(
-                // on conflict do nothing
-                OnConflict::column(forum_posts::Column::PostId)
-                    .update_columns([
-                        forum_posts::Column::PostTime,
-                        forum_posts::Column::PostContent,
-                        forum_posts::Column::PostUserId,
-                        forum_posts::Column::LastEditTime,
-                        forum_posts::Column::PostUnhidden,
-                        forum_posts::Column::PostAdminHidden,
-                        forum_posts::Column::PostLocked,
-                        forum_posts::Column::LastEditUser,
-                        forum_posts::Column::PostUsername,
-                        forum_posts::Column::ThreadId,
-                    ])
-                    .to_owned(),
-            )
-            .exec(&state!().conn)
-            .await
-            .expect("Code-up error: Can't save thread to DB!");
+            };
+            dumbsert!(
+                forum_posts::Entity,
+                &am,
+                forum_posts::Column::PostId,
+                "Error saving post to database",
+                true
+            );
         }
     }
 }
@@ -577,8 +518,7 @@ pub async fn get_forums() -> anyhow::Result<()> {
             if state!().do_images {
                 for thread in threads {
                     for post in thread.posts {
-                        get_images(post.post_id.clone(), post.post_content.clone())
-                            .await;
+                        get_images(post.post_id.clone(), post.post_content.clone()).await;
                     }
                 }
             }

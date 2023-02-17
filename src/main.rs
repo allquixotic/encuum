@@ -1,18 +1,17 @@
+pub mod applications;
 /// Copyright (c) 2023, Sean McNamara <smcnam@gmail.com>.
 /// All code in this repository is disjunctively licensed under [CC-BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) and [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 /// Direct dependencies are believed to be under a license which allows downstream code to have these licenses.
 pub mod forum;
-pub mod structures;
 pub mod helpers;
-pub mod applications;
-
+pub mod structures;
 
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::applications::get_apps;
@@ -27,9 +26,9 @@ use sea_orm::Database;
 use secrecy::SecretString;
 use tokio_cron_scheduler::Job;
 use tokio_cron_scheduler::JobScheduler;
-use tracing::Level;
 use tracing::info;
 use tracing::warn;
+use tracing::Level;
 
 impl State {
     pub async fn new() -> Self {
@@ -56,9 +55,9 @@ impl State {
         let email = var("email").expect("Required .env variable missing: email");
         let password = var("password").expect("Required .env variable missing: password");
         let sanitize_log = var("sanitize_log")
-        .unwrap_or("false".to_string())
-        .parse()
-        .unwrap();
+            .unwrap_or("false".to_string())
+            .parse()
+            .unwrap();
 
         let mut session_id = match var("session_id").ok() {
             Some(s) => Some(SecretString::new(s)),
@@ -130,8 +129,9 @@ impl Write for MultiWriter {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-
-    STATE.set(State::new().await).expect("State couldn't be set");
+    STATE
+        .set(State::new().await)
+        .expect("State couldn't be set");
 
     let mut writers: Vec<Box<dyn Write + Send + Sync>> = vec![(Box::new(std::io::stderr()))];
     if let Some(log_file) = var("log_file").ok() {
@@ -140,7 +140,8 @@ async fn main() -> anyhow::Result<()> {
     let mw = Mutex::new(MultiWriter { writers });
 
     let tsb = tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_ansi(false)
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_ansi(false)
         .with_writer(mw);
 
     if let Ok(log_level) = var("log_level") {
@@ -150,10 +151,11 @@ async fn main() -> anyhow::Result<()> {
             "INFO" => tsb.with_max_level(Level::INFO),
             "WARN" => tsb.with_max_level(Level::WARN),
             "ERROR" => tsb.with_max_level(Level::ERROR),
-            _ => tsb.with_max_level(Level::INFO)
+            _ => tsb.with_max_level(Level::INFO),
         }
-        .try_init().expect("setting default subscriber failed");
-    }   
+        .try_init()
+        .expect("setting default subscriber failed");
+    }
 
     let sched = JobScheduler::new().await?;
 
@@ -180,8 +182,6 @@ async fn main() -> anyhow::Result<()> {
         std::time::Instant::now(),
         |_a, mut schedd| {
             Box::pin(async move {
-                
-
                 if state!().forum_ids.is_some() {
                     get_forums().await.unwrap();
                 } else {

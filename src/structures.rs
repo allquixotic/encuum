@@ -12,13 +12,13 @@ use once_cell::sync::OnceCell;
 use reqwest::Client;
 use sea_orm::DatabaseConnection;
 use secrecy::SecretString;
-use tracing::Level;
 use std::{collections::HashMap, time::Duration};
 use tower_http::{
     classify::{ServerErrorsAsFailures, SharedClassifier},
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
+use tracing::Level;
 
 lazy_static::lazy_static! {
    pub static ref SEE: HttpClient<tower_http::trace::Trace<HttpBackend, SharedClassifier<ServerErrorsAsFailures>, DefaultMakeSpan>> = {
