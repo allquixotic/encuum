@@ -77,39 +77,4 @@ trait WikiApi {
         diff: Option<u64>,
     ) -> Result<GetWikiPageTitleResult, Error>;
 
-    #[method(name="Wiki.getPreview", param_kind=map)]
-    async fn get_wiki_preview(
-        &self,
-        session_id: &String,
-        preset_id: &String,
-        page_title: &String,
-        page_text: &String,
-    ) -> Result<GetWikiPreviewResult, Error>;
-
-    #[method(name="Wiki.getRecentChanges", param_kind=map)]
-    async fn get_wiki_recent_changes(
-        &self,
-        session_id: &String,
-        preset_id: &String,
-        limit: Option<u32>,
-        older_than_revision: Option<u32>,
-    ) -> Result<GetWikiRecentChangesResult, Error>;
-
-    #[method(name="Wiki.getStats", param_kind=map)]
-    async fn get_wiki_stats(
-        &self,
-        session_id: &String,
-        preset_id: &String,
-    ) -> Result<GetWikiStatsResult, Error>;
-
-    #[method(name="Wiki.getUserHistory", param_kind=map)]
-    async fn get_wiki_user_history(
-        &self,
-        session_id: &String,
-        preset_id: &String,
-        user_id: &String,
-        limit: Option<u32>,
-    ) -> Result<GetWikiUserHistoryResult, Error>;
-
-
 }
