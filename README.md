@@ -4,6 +4,8 @@
 
 Encuum is a tool that extracts the contents of Enjin websites onto your disk using a well-known database format called [SQLite](https://sqlite.org/index.html). It does so by accessing the [Enjin API](https://www.enjin.com/api).
 
+Since folks have requested it, you can donate to me on Ko-fi. [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G51HM3A)
+
 ## IMPORTANT NOTE
 
 Enjin's guild websites are shutting down at the end of April 2023 according to the developer post [here](https://www.enjin.com/forums/page/6/m/10826/viewthread/33743439-announcing-retirement-enjin-website-builder). If you need to backup your site, it's probably a better idea to start doing so now, to make sure the technology works. Then, set a deadline past which your community's site should be "read-only" as you migrate to a new web hosting service. 
