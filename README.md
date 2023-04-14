@@ -123,7 +123,7 @@ Step 1: Obtain your wiki's identifier. This is the long number that appears in t
 
 Step 2: Edit the below JavaScript code, replacing the value of 'presetId' with the value of your wiki's identifier.
 
-Step 3: In your web browser, either press **F12** or right-click on the page and select **Inspect** or **Inspect Element**. Then go to **Console**. You may need to type `allow pasting` to get your console to allow you to paste code. Then, paste in the code.
+Step 3: In your web browser, visit the wiki you want to extract. Now, either press **F12** or right-click on the page and select **Inspect** or **Inspect Element**. Then go to **Console**. You may need to type `allow pasting` to get your console to allow you to paste code. Then, paste in the code.
 
 ```javascript
 const apiEndpoint = '/api/v1/api.php';
