@@ -115,6 +115,79 @@ Once it's running, follow the directions to [enable TLS (aka HTTPS) support in P
 
 Now, re-run Encuum as directed once more via `cargo run --release`. This will cause your Proxyman window to fill up with requests to your guild website. Keep it running until Encuum fails, then copy the "Raw" contents of the last request and response bodies (I need both request *and* response) into a new [GitHub Gist](https://gist.github.com) which you can link to in a [GitHub issue](https://github.com/allquixotic/encuum/issues/new/choose) in this repo. Before you post anything online, *audit the text* of both the request and response, and remove anything sensitive, such as cookie data, session_id parameters, or passwords. Then post your issue, along with a description of what you were trying to do.
 
+# Downloading Wiki - a Workaround
+
+In my testing, API-driven access to the Enjin Wiki always produces "Access Denied" type errors. To solve that, I wrote some JavaScript code (with the help of ChatGPT) that you can paste into your web browser's JavaScript console to download your site's Wiki.
+
+Step 1: Obtain your wiki's identifier. This is the long number that appears in the Address Bar of your web browser when you're visiting the wiki.
+
+Step 2: Edit the below JavaScript code, replacing the value of 'presetId' with the value of your wiki's identifier.
+
+Step 3: In your web browser, either press **F12** or right-click on the page and select **Inspect** or **Inspect Element**. Then go to **Console**. You may need to type `allow pasting` to get your console to allow you to paste code. Then, paste in the code.
+
+```javascript
+const apiEndpoint = '/api/v1/api.php';
+const headers = { 'Content-Type': 'application/json' };
+const presetId = 12345678; //UPDATE THIS!!!
+
+async function jsonRpcCall(method, params) {
+  try {
+    const response = await fetch(apiEndpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+    console.error('Error: Response not OK', response);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+  return null;
+}
+
+function downloadJson(jsonData, filename) {
+  const dataStr = JSON.stringify(jsonData);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function performJSON_RPCRequest() {
+  const data = await jsonRpcCall('Wiki.getPageList', { preset_id: presetId });
+
+  if (data?.result) {
+    const pageTitles = [];
+
+    for (const page of data.result) {
+      const pageTitleResponse = await jsonRpcCall('Wiki.getPageTitle', { preset_id: presetId, title: page.page_title });
+      if (pageTitleResponse?.result) {
+        pageTitles.push(pageTitleResponse.result);
+      }
+      await sleep(1000); // Wait for 1 second before the next request
+    }
+
+    downloadJson(pageTitles, 'page_titles.json');
+  } else {
+    console.error('Error: No result in the response');
+  }
+}
+
+performJSON_RPCRequest();
+```
+
 
 ## Development Status
 
@@ -139,7 +212,7 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
 ### Other Enjin features
 
  - [ ] Saving users
- - [ ] Saving wikis
+ - [ ] Saving wikis (JavaScript workaround posted above; not built into encuum)
  - [x] Saving applications (to join a site)
  - [ ] Saving private messages
  - [ ] Saving News posts (via the Enjin News module)
