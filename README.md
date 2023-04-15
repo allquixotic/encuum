@@ -229,7 +229,7 @@ If you have any problems, please [file an issue](https://github.com/allquixotic/
 
 # Known Issues
 
-- None yet; I just released this prototype!
+- If you get an error like: `thread 'main' panicked at 'database_file must be set: EnvVar(NotPresent)', src\main.rs:49:45` you have [file extensions](https://en.wikipedia.org/wiki/Filename_extension) disabled in Windows File Explorer. Enable them, and you'll see that your `.env` file is actually named something like `.env.txt`. This is because Windows is stupid and tries to assign a file extension to every file if you don't specify one, and then it hides file extensions by default so you can't see that the file has one. This is common enough that there have been [multiple](https://github.com/allquixotic/encuum/issues/15) [issues](https://github.com/allquixotic/encuum/issues/10) filed about this already. Please don't file any more issues about this same problem; just enable file extensions and fix your file name.
 
 ## Licensing
 
