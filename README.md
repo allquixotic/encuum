@@ -2,6 +2,14 @@
 
 # Encuum - An Enjin Extractor
 
+# Maintenance Update 4/17/23
+
+**The encuum project is now unmaintained**. Another developer has managed to write a much more complete Enjin extractor over here: https://github.com/Kas-tle/EnjinScraper Please use that going forward.
+
+Thank you to all who put in effort to contribute and help fix bugs.
+
+--------
+
 Encuum is a tool that extracts the contents of Enjin websites onto your disk using a well-known database format called [SQLite](https://sqlite.org/index.html). It does so by accessing the [Enjin API](https://www.enjin.com/api).
 
 Since folks have requested it, you can donate to me on Ko-fi. [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G51HM3A)
